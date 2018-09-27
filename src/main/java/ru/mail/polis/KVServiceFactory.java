@@ -16,7 +16,10 @@
 
 package ru.mail.polis;
 
+import one.nio.http.HttpServerConfig;
+import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
+import ru.mail.polis.StandaloneServer.StandaloneServer;
 
 import java.io.IOException;
 
@@ -50,8 +53,10 @@ final class KVServiceFactory {
         if (port <= 0 || 65536 <= port) {
             throw new IllegalArgumentException("Port out of range");
         }
-
-        // TODO: Implement me
-        throw new UnsupportedOperationException("Implement me!");
+        HttpServerConfig config = new HttpServerConfig();
+        AcceptorConfig acceptorConfig = new AcceptorConfig();
+        acceptorConfig.port = port;
+        config.acceptors = new AcceptorConfig[]{acceptorConfig};
+        return new StandaloneServer(config, dao);
     }
 }

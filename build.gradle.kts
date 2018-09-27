@@ -11,6 +11,9 @@ repositories {
 }
 
 dependencies {
+    //Web-server "one-nio"
+    compile(group = "ru.odnoklassniki", name = "one-nio", version = "1.0.2")
+
     // Annotations for better code documentation
     compile("com.intellij:annotations:12.0")
 
@@ -29,7 +32,7 @@ tasks {
 
 application {
     // Define the main class for the application
-    mainClassName = "ru.mail.polis.Server"
+    mainClassName = "ru.mail.polis.StandaloneServer"
 
     // And limit Xmx
     applicationDefaultJvmArgs = listOf("-Xmx128m")
