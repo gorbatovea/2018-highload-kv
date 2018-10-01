@@ -19,33 +19,33 @@ package ru.mail.polis;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.fluent.Request;
 import org.jetbrains.annotations.NotNull;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
+
 
 /**
  * Unit tests for single node {@link KVService} API
  *
  * @author Vadim Tsesko <incubos@yandex.com>
  */
-public class SingleNodeTest extends TestBase {
+class SingleNodeTest extends TestBase {
+    private static final Duration TIMEOUT = Duration.ofSeconds(3);
     private static int port;
     private static File data;
     private static KVDao dao;
     private static KVService storage;
-    @Rule
-    public final Timeout globalTimeout = Timeout.seconds(3);
 
-    @BeforeClass
-    public static void beforeAll() throws IOException {
+    @BeforeAll
+    static void beforeAll() throws IOException {
         port = randomPort();
         data = Files.createTempDirectory();
         dao = KVDaoFactory.create(data);
@@ -53,8 +53,8 @@ public class SingleNodeTest extends TestBase {
         storage.start();
     }
 
-    @AfterClass
-    public static void afterAll() throws IOException {
+    @AfterAll
+    static void afterAll() throws IOException {
         storage.stop();
         dao.close();
         Files.recursiveDelete(data);
@@ -80,142 +80,161 @@ public class SingleNodeTest extends TestBase {
     }
 
     @Test
-    public void emptyKey() throws Exception {
-        assertEquals(400, get("").getStatusLine().getStatusCode());
-        assertEquals(400, delete("").getStatusLine().getStatusCode());
-        assertEquals(400, upsert("", new byte[]{0}).getStatusLine().getStatusCode());
+    void emptyKey() {
+        assertTimeout(TIMEOUT, () -> {
+            assertEquals(400, get("").getStatusLine().getStatusCode());
+            assertEquals(400, delete("").getStatusLine().getStatusCode());
+            assertEquals(400, upsert("", new byte[]{0}).getStatusLine().getStatusCode());
+        });
     }
 
     @Test
-    public void badRequest() throws Exception {
-        assertEquals(
+    void badRequest() {
+        assertTimeout(TIMEOUT, () -> assertEquals(
                 404,
                 Request.Get(url("/abracadabra")).execute().returnResponse()
-                        .getStatusLine().getStatusCode());
+                        .getStatusLine().getStatusCode()));
     }
 
     @Test
-    public void getAbsent() throws Exception {
-        assertEquals(
+    void getAbsent() throws Exception {
+        assertTimeout(TIMEOUT, () -> assertEquals(
                 404,
-                get("absent").getStatusLine().getStatusCode());
+                get("absent").getStatusLine().getStatusCode()));
     }
 
     @Test
-    public void deleteAbsent() throws Exception {
-        assertEquals(202, delete("absent").getStatusLine().getStatusCode());
+    void deleteAbsent() {
+        assertTimeout(TIMEOUT, () -> assertEquals(202, delete("absent").getStatusLine().getStatusCode()));
     }
 
     @Test
-    public void insert() throws Exception {
-        final String key = randomId();
-        final byte[] value = randomValue();
+    void insert() {
+        assertTimeout(TIMEOUT, () -> {
+            final String key = randomId();
+            final byte[] value = randomValue();
 
-        // Insert
-        assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
+            // Insert
+            assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
 
-        // Check
-        final HttpResponse response = get(key);
-        assertEquals(200, response.getStatusLine().getStatusCode());
-        assertArrayEquals(value, payloadOf(response));
+            // Check
+            final HttpResponse response = get(key);
+            assertEquals(200, response.getStatusLine().getStatusCode());
+            assertArrayEquals(value, payloadOf(response));
+        });
     }
 
     @Test
-    public void insertEmpty() throws Exception {
-        final String key = randomId();
-        final byte[] value = new byte[0];
+    void insertEmpty() {
+        assertTimeout(TIMEOUT, () -> {
 
-        // Insert
-        assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
+            final String key = randomId();
+            final byte[] value = new byte[0];
 
-        // Check
-        final HttpResponse response = get(key);
-        assertEquals(200, response.getStatusLine().getStatusCode());
-        assertArrayEquals(value, payloadOf(response));
+            // Insert
+            assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
+
+            // Check
+            final HttpResponse response = get(key);
+            assertEquals(200, response.getStatusLine().getStatusCode());
+            assertArrayEquals(value, payloadOf(response));
+        });
     }
 
     @Test
-    public void lifecycle2keys() throws Exception {
-        final String key1 = randomId();
-        final byte[] value1 = randomValue();
-        final String key2 = randomId();
-        final byte[] value2 = randomValue();
+    void lifecycle2keys() {
+        assertTimeout(TIMEOUT, () -> {
 
-        // Insert 1
-        assertEquals(201, upsert(key1, value1).getStatusLine().getStatusCode());
+            final String key1 = randomId();
+            final byte[] value1 = randomValue();
+            final String key2 = randomId();
+            final byte[] value2 = randomValue();
 
-        // Check
-        assertArrayEquals(value1, payloadOf(get(key1)));
+            // Insert 1
+            assertEquals(201, upsert(key1, value1).getStatusLine().getStatusCode());
 
-        // Insert 2
-        assertEquals(201, upsert(key2, value2).getStatusLine().getStatusCode());
+            // Check
+            assertArrayEquals(value1, payloadOf(get(key1)));
 
-        // Check
-        assertArrayEquals(value1, payloadOf(get(key1)));
-        assertArrayEquals(value2, payloadOf(get(key2)));
+            // Insert 2
+            assertEquals(201, upsert(key2, value2).getStatusLine().getStatusCode());
 
-        // Delete 1
-        assertEquals(202, delete(key1).getStatusLine().getStatusCode());
+            // Check
+            assertArrayEquals(value1, payloadOf(get(key1)));
+            assertArrayEquals(value2, payloadOf(get(key2)));
 
-        // Check
-        assertEquals(404, get(key1).getStatusLine().getStatusCode());
-        assertArrayEquals(value2, payloadOf(get(key2)));
+            // Delete 1
+            assertEquals(202, delete(key1).getStatusLine().getStatusCode());
 
-        // Delete 2
-        assertEquals(202, delete(key2).getStatusLine().getStatusCode());
+            // Check
+            assertEquals(404, get(key1).getStatusLine().getStatusCode());
+            assertArrayEquals(value2, payloadOf(get(key2)));
 
-        // Check
-        assertEquals(404, get(key2).getStatusLine().getStatusCode());
+            // Delete 2
+            assertEquals(202, delete(key2).getStatusLine().getStatusCode());
+
+            // Check
+            assertEquals(404, get(key2).getStatusLine().getStatusCode());
+        });
     }
 
     @Test
-    public void upsert() throws Exception {
-        final String key = randomId();
-        final byte[] value1 = randomValue();
-        final byte[] value2 = randomValue();
+    void upsert() {
+        assertTimeout(TIMEOUT, () -> {
 
-        // Insert value1
-        assertEquals(201, upsert(key, value1).getStatusLine().getStatusCode());
+            final String key = randomId();
+            final byte[] value1 = randomValue();
+            final byte[] value2 = randomValue();
 
-        // Insert value2
-        assertEquals(201, upsert(key, value2).getStatusLine().getStatusCode());
+            // Insert value1
+            assertEquals(201, upsert(key, value1).getStatusLine().getStatusCode());
 
-        // Check value 2
-        final HttpResponse response = get(key);
-        assertEquals(200, response.getStatusLine().getStatusCode());
-        assertArrayEquals(value2, payloadOf(response));
+            // Insert value2
+            assertEquals(201, upsert(key, value2).getStatusLine().getStatusCode());
+
+            // Check value 2
+            final HttpResponse response = get(key);
+            assertEquals(200, response.getStatusLine().getStatusCode());
+            assertArrayEquals(value2, payloadOf(response));
+        });
     }
 
     @Test
-    public void upsertEmpty() throws Exception {
-        final String key = randomId();
-        final byte[] value = randomValue();
-        final byte[] empty = new byte[0];
+    void upsertEmpty() {
+        assertTimeout(TIMEOUT, () -> {
 
-        // Insert value
-        assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
+            final String key = randomId();
+            final byte[] value = randomValue();
+            final byte[] empty = new byte[0];
 
-        // Insert empty
-        assertEquals(201, upsert(key, empty).getStatusLine().getStatusCode());
+            // Insert value
+            assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
 
-        // Check empty
-        final HttpResponse response = get(key);
-        assertEquals(200, response.getStatusLine().getStatusCode());
-        assertArrayEquals(empty, payloadOf(response));
+            // Insert empty
+            assertEquals(201, upsert(key, empty).getStatusLine().getStatusCode());
+
+            // Check empty
+            final HttpResponse response = get(key);
+            assertEquals(200, response.getStatusLine().getStatusCode());
+            assertArrayEquals(empty, payloadOf(response));
+        });
     }
 
     @Test
-    public void delete() throws Exception {
-        final String key = randomId();
-        final byte[] value = randomValue();
+    void delete() {
+        assertTimeout(TIMEOUT, () -> {
 
-        // Insert
-        assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
+            final String key = randomId();
+            final byte[] value = randomValue();
 
-        // Delete
-        assertEquals(202, delete(key).getStatusLine().getStatusCode());
+            // Insert
+            assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
 
-        // Check
-        assertEquals(404, get(key).getStatusLine().getStatusCode());
+            // Delete
+            assertEquals(202, delete(key).getStatusLine().getStatusCode());
+
+            // Check
+            assertEquals(404, get(key).getStatusLine().getStatusCode());
+        });
     }
 }
