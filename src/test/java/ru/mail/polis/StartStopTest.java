@@ -17,49 +17,50 @@
 package ru.mail.polis;
 
 import org.apache.http.client.fluent.Request;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.FixMethodOrder;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
-import org.junit.runners.MethodSorters;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
+
 
 /**
  * Basic init/deinit test for {@link KVService} implementation
  *
  * @author Vadim Tsesko <incubos@yandex.com>
  */
-@FixMethodOrder(MethodSorters.NAME_ASCENDING)
-public class StartStopTest extends TestBase {
+class StartStopTest extends TestBase {
     private static final long TIMEOUT_MS = TimeUnit.SECONDS.toMillis(1);
-    private static int port;
-    private static File data;
-    private static KVDao dao;
-    private static KVService storage;
-    @Rule
-    public final Timeout globalTimeout = Timeout.millis(TIMEOUT_MS * 2);
+    private static final Duration TIMEOUT = Duration.ofMillis(TIMEOUT_MS * 2);
 
-    @BeforeClass
-    public static void beforeAll() throws IOException {
-        port = randomPort();
+    private int port;
+    private File data;
+    private KVDao dao;
+    private KVService kvService;
+
+    @BeforeEach
+    void beforeEach() throws IOException {
         data = Files.createTempDirectory();
         dao = KVDaoFactory.create(data);
+        port = randomPort();
+        kvService = KVServiceFactory.create(port, dao);
     }
 
-    @AfterClass
-    public static void afterAll() throws IOException {
+    @AfterEach
+    void afterEach() throws IOException {
         dao.close();
+        kvService.stop();
         Files.recursiveDelete(data);
     }
 
-    private static int status() throws IOException {
+    private static int status(int port) throws IOException {
         return Request.Get("http://localhost:" + port + "/v0/status")
                 .connectTimeout((int) TIMEOUT_MS)
                 .socketTimeout((int) TIMEOUT_MS)
@@ -70,30 +71,29 @@ public class StartStopTest extends TestBase {
     }
 
     @Test
-    public void create() throws Exception {
-        storage = KVServiceFactory.create(port, dao);
-        try {
-            // Should not respond before start
-            status();
-        } catch (IOException e) {
-            // Do nothing
-        }
+    void create() {
+        assertTimeout(TIMEOUT, () -> {
+            KVServiceFactory.create(port, dao);
+            assertThrows(IOException.class, () -> status(port));
+        });
     }
 
     @Test
-    public void start() throws Exception {
-        storage.start();
-        assertEquals(200, status());
+    void start() {
+        assertTimeout(TIMEOUT, () -> {
+            kvService.start();
+            assertEquals(200, status(port));
+        });
     }
 
     @Test
-    public void stop() {
-        storage.stop();
-        try {
+    void stop() {
+        assertTimeout(TIMEOUT, () -> {
+            kvService.start();
+            assertEquals(200, status(port));
+            kvService.stop();
             // Should not respond after stop
-            status();
-        } catch (IOException e) {
-            // Do nothing
-        }
+            assertThrows(IOException.class, () -> status(port));
+        });
     }
 }
