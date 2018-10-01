@@ -11,6 +11,9 @@ repositories {
 }
 
 dependencies {
+    //SLF4J-api
+    compile(group = "org.slf4j", name = "slf4j-api", version = "1.7.25")
+
     //Web-server "one-nio"
     compile(group = "ru.odnoklassniki", name = "one-nio", version = "1.0.2")
 
@@ -32,7 +35,7 @@ tasks {
 
 application {
     // Define the main class for the application
-    mainClassName = "ru.mail.polis.StandaloneServer"
+    mainClassName = "ru.mail.polis.Server"
 
     // And limit Xmx
     applicationDefaultJvmArgs = listOf("-Xmx128m")

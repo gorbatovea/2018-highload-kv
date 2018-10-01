@@ -19,7 +19,7 @@ package ru.mail.polis;
 import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.StandaloneServer.StandaloneServer;
+import ru.mail.polis.service.service;
 
 import java.io.IOException;
 
@@ -38,7 +38,7 @@ final class KVServiceFactory {
     /**
      * Construct a storage instance.
      *
-     * @param port port to bind HTTP server to
+     * @param port port to bind HTTP service to
      * @param dao  DAO to store the data
      * @return a storage instance
      */
@@ -57,6 +57,6 @@ final class KVServiceFactory {
         AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
-        return new StandaloneServer(config, dao);
+        return new service(config, dao);
     }
 }
