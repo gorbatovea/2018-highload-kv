@@ -17,8 +17,6 @@ public class service extends HttpServer implements KVService {
     @NotNull
     private final KVDao dao;
 
-    private final Logger logger = LoggerFactory.getLogger(ru.mail.polis.service.service.class);
-
     public service(@NotNull HttpServerConfig config, @NotNull KVDao dao) throws IOException {
         super(config);
         this.dao = dao;
@@ -45,7 +43,6 @@ public class service extends HttpServer implements KVService {
                 case Request.METHOD_PUT: {
                     dao.upsert(request.getParameter(ID_PARAM).getBytes(), request.getBody());
                     session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-                    System.out.println(Response.CREATED);
                     return;
                 }
                 case Request.METHOD_GET: {
@@ -62,11 +59,12 @@ public class service extends HttpServer implements KVService {
                 }
             }
         }catch (NoSuchElementException nSEE) {
-            nSEE.printStackTrace();
             session.sendError(Response.NOT_FOUND, null);
+            nSEE.printStackTrace();
+
         } catch (Exception e) {
-            e.printStackTrace();
             session.sendError(Response.INTERNAL_ERROR, null);
+            e.printStackTrace();
         }
     }
 
