@@ -24,12 +24,12 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeout;
-
 
 /**
  * Basic init/deinit test for {@link KVService} implementation
@@ -50,7 +50,7 @@ class StartStopTest extends TestBase {
         data = Files.createTempDirectory();
         dao = KVDaoFactory.create(data);
         port = randomPort();
-        kvService = KVServiceFactory.create(port, dao);
+        kvService = KVServiceFactory.create(port, dao, Collections.singleton(endpoint(port)));
     }
 
     @AfterEach
@@ -73,7 +73,6 @@ class StartStopTest extends TestBase {
     @Test
     void create() {
         assertTimeout(TIMEOUT, () -> {
-            KVServiceFactory.create(port, dao);
             assertThrows(IOException.class, () -> status(port));
         });
     }
