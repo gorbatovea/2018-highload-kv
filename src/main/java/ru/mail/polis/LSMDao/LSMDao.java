@@ -55,7 +55,9 @@ public class LSMDao implements KVDao {
 
     @Override
     public void remove(@NotNull byte[] key) {
-        byte[] value = this.memTable.get(ByteBuffer.wrap(key)).getValue();
+        Value wrapper = this.memTable.get(ByteBuffer.wrap(key));
+        if (wrapper == null) return;
+        byte[] value = wrapper.getValue();
         if (value != null) {
             if (value != SnapshotHolder.REMOVED_VALUE) {
                 this.memTable.put(
@@ -72,10 +74,12 @@ public class LSMDao implements KVDao {
     @Override
     public void close() throws IOException {
         this.holder.save(this.memTable);
+        this.memTable.clear();
+        this.holder.stop();
     }
 
     public LSMDao.Value getWithMeta(@NotNull byte[] key) throws IOException, NoSuchElementException{
-        Value value = this.memTable.get(key);
+        Value value = this.memTable.get(ByteBuffer.wrap(key));
         if (value == null) {
             return this.holder.getWithMeta(key);
         } else {
@@ -89,7 +93,7 @@ public class LSMDao implements KVDao {
 
     }
 
-    private static class Value {
+    public static class Value {
         private byte[] value;
         private long timeStamp;
 
@@ -224,11 +228,12 @@ public class LSMDao implements KVDao {
         }
 
         public LSMDao.Value getWithMeta(byte[] key) throws IOException, NoSuchElementException{
-            SnapshotHolder.Value value = sSMap.get(key);
-            if (value.getIndex() == null)
-                return new LSMDao.Value(null, value.getTimeStamp());
-            else
-                return new LSMDao.Value(this.get(key), value.getTimeStamp());
+            SnapshotHolder.Value value = sSMap.get(ByteBuffer.wrap(key));
+            if (value == null) throw new NoSuchElementException();
+            else if (value.getIndex() == null)
+                    return new LSMDao.Value(null, value.getTimeStamp());
+                else
+                    return new LSMDao.Value(this.get(key), value.getTimeStamp());
         }
 
         public boolean contains(byte[] key) {
@@ -275,6 +280,10 @@ public class LSMDao implements KVDao {
                         new LSMDao.SnapshotHolder.Value(fileNumber, entry.getValue().getTimeStamp()));
             }
             fileNumber++;
+        }
+
+        public void stop() {
+            this.sSMap.clear();
         }
 
         private class Value {
