@@ -17,12 +17,15 @@
 package ru.mail.polis;
 
 import com.google.common.collect.Iterators;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.fluent.Request;
+import one.nio.http.HttpClient;
+import one.nio.http.Response;
+import one.nio.net.ConnectionString;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Facilities for cluster tests
@@ -30,40 +33,81 @@ import java.util.Set;
  * @author Vadim Tsesko <incubos@yandex.com>
  */
 abstract class ClusterTestBase extends TestBase {
+    private static final long TIMEOUT = TimeUnit.SECONDS.toMillis(1);
+    private final Map<String, HttpClient> hostToClient = new HashMap<>();
     Set<String> endpoints;
 
     @NotNull
-    private String url(
+    private HttpClient client(final int node) {
+        final String endpoint = Iterators.get(endpoints.iterator(), node);
+        return hostToClient.computeIfAbsent(
+                endpoint,
+                key -> new HttpClient(new ConnectionString(key + "?timeout=" + TIMEOUT)));
+    }
+
+    private void resetClient(final int node) {
+        final String endpoint = Iterators.get(endpoints.iterator(), node);
+        final HttpClient client = hostToClient.remove(endpoint);
+        if (client != null) {
+            client.close();
+        }
+    }
+
+    void stop(
             final int node,
+            @NotNull final KVService service) {
+        resetClient(node);
+        service.stop();
+    }
+
+    void start(
+            final int node,
+            @NotNull final KVService service) {
+        service.start();
+
+        // Wait for the server to answer
+        final long deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(1);
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                if (client(node).get("/v0/status").getStatus() == 200) {
+                    return;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        throw new RuntimeException("Can't wait for the service");
+    }
+
+    @NotNull
+    private String path(
             @NotNull final String id,
             final int ack,
             final int from) {
-        final String endpoint = Iterators.get(endpoints.iterator(), node);
-        return endpoint + "/v0/entity?id=" + id + "&replicas=" + ack + "/" + from;
+        return "/v0/entity?id=" + id + "&replicas=" + ack + "/" + from;
     }
 
-    HttpResponse get(
+    Response get(
             final int node,
             @NotNull final String key,
             final int ack,
-            final int from) throws IOException {
-        return Request.Get(url(node, key, ack, from)).execute().returnResponse();
+            final int from) throws Exception {
+        return client(node).get(path(key, ack, from));
     }
 
-    HttpResponse delete(
+    Response delete(
             final int node,
             @NotNull final String key,
             final int ack,
-            final int from) throws IOException {
-        return Request.Delete(url(node, key, ack, from)).execute().returnResponse();
+            final int from) throws Exception {
+        return client(node).delete(path(key, ack, from));
     }
 
-    HttpResponse upsert(
+    Response upsert(
             final int node,
             @NotNull final String key,
             @NotNull final byte[] data,
             final int ack,
-            final int from) throws IOException {
-        return Request.Put(url(node, key, ack, from)).bodyByteArray(data).execute().returnResponse();
+            final int from) throws Exception {
+        return client(node).put(path(key, ack, from), data);
     }
 }
