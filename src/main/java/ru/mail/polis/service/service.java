@@ -1,13 +1,9 @@
 package ru.mail.polis.service;
 
-import com.sun.xml.internal.bind.v2.model.core.ID;
 import one.nio.http.*;
 import one.nio.net.ConnectionString;
-
 import org.apache.log4j.Logger;
-import org.apache.log4j.spi.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
-
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.KVDao;
 import ru.mail.polis.KVService;
@@ -15,8 +11,6 @@ import ru.mail.polis.LSMDao.LSMDao;
 import ru.mail.polis.service.Utils.*;
 
 import java.io.IOException;
-import java.lang.reflect.Executable;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -95,7 +89,7 @@ public class service extends HttpServer implements KVService {
     public void entity(Request request, HttpSession session) throws IOException {
         try {
 
-            this.logger.info(buildString(
+            logger.info(buildString(
                     SPLITTER,
                     REQUEST_FROM,
                     request.getHost(),
@@ -113,24 +107,24 @@ public class service extends HttpServer implements KVService {
                 case Request.METHOD_PUT: {
                     Response response = upsert(id, request.getBody(), request.getHeader(PROXY_HEADER) != null);
                     session.sendResponse(response);
-                    this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
+                    logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     break;
                 }
                 case Request.METHOD_GET: {
                     Response response = get(id, request.getHeader(PROXY_HEADER) != null);
                     session.sendResponse(response);
-                    this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
+                    logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     break;
                 }
                 case Request.METHOD_DELETE: {
                     Response response = remove(id, request.getHeader(PROXY_HEADER) != null);
                     session.sendResponse(response);
-                    this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
+                    logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     break;
                 }
                 default: {
                     Response response = buildResponse(Response.METHOD_NOT_ALLOWED, null, null);
-                    this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
+                    logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     session.sendResponse(response);
                     break;
                 }
@@ -138,16 +132,16 @@ public class service extends HttpServer implements KVService {
         } catch (IllegalArgumentException iAE) {
             logger.error(iAE);
             Response response = buildResponse(Response.BAD_REQUEST, null, null);
-            this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), request.getHeader("PORT"), Integer.toString(response.getStatus())));
+            logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), request.getHeader("PORT"), Integer.toString(response.getStatus())));
             session.sendResponse(response);
         }
     }
 
     @Override
     public void handleDefault(Request request, HttpSession session) throws IOException {
-        this.logger.info("Request from " + request.getHost() + " " + request.getMethod());
+        logger.info("Request from " + request.getHost() + " " + request.getMethod());
         Response response = buildResponse(Response.BAD_REQUEST, null, null);
-        this.logger.info("Response to " + request.getHost() + " " + response.getStatus());
+        logger.info("Response to " + request.getHost() + " " + response.getStatus());
         session.sendResponse(response);
     }
 
@@ -157,7 +151,7 @@ public class service extends HttpServer implements KVService {
                 dao.upsert(id.getBytes(), value);
                 return new Response(Response.CREATED, Response.EMPTY);
             } catch (IOException iOE) {
-                this.logger.error(iOE.getClass());
+                logger.error(iOE.getClass());
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
@@ -172,7 +166,7 @@ public class service extends HttpServer implements KVService {
                         //requesting others nodes
                         if (sendProxied(HttpMethod.PUT, node, id, value).getStatus() == HTTP_CODE_CREATED) ack++;
                     }
-                } catch (Exception e) { this.logger.error(e.getMessage()); }
+                } catch (Exception e) { logger.error(e.getMessage()); }
             }
             //making response to user
             return ack >= requestCondition.getAck() ?
@@ -202,7 +196,7 @@ public class service extends HttpServer implements KVService {
                         if (sendProxied(HttpMethod.DELETE, node, id, null).getStatus() == HTTP_CODE_ACCEPTED) ack++;
                     }
                 } catch (Exception e) {
-                    this.logger.error(e.getMessage());
+                    logger.error(e.getMessage());
                 }
             }
             //making response to user
@@ -229,7 +223,7 @@ public class service extends HttpServer implements KVService {
                     try {
                         analyzer.put(sendProxied(HttpMethod.GET, node, id, null), node);
                     } catch (Exception e) {
-                        this.logger.error(e.getMessage());
+                        logger.error(e.getMessage());
                         analyzer.put(new Response(Response.INTERNAL_ERROR, Response.EMPTY), node);
                     }
                 }
@@ -253,10 +247,10 @@ public class service extends HttpServer implements KVService {
 
         } catch (NoSuchElementException nSEE) {
             //404 Response with LONG.MIN_VALUE
-            this.logger.error(nSEE.getClass());
+            logger.error(nSEE.getClass());
             return buildResponse(Response.NOT_FOUND, Response.EMPTY, Long.MIN_VALUE);
         }catch (IOException iOE) {
-            this.logger.error(iOE.getClass());
+            logger.error(iOE.getClass());
             return buildResponse(Response.INTERNAL_ERROR, Response.EMPTY, null);
         }
     }
