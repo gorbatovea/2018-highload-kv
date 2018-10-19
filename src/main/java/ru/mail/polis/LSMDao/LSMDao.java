@@ -75,7 +75,7 @@ public class LSMDao implements KVDao {
     public void close() throws IOException {
         this.holder.save(this.memTable);
         this.memTable.clear();
-        this.holder.stop();
+        this.holder.close();
     }
 
     public LSMDao.Value getWithMeta(@NotNull byte[] key) throws IOException, NoSuchElementException{
@@ -282,7 +282,7 @@ public class LSMDao implements KVDao {
             fileNumber++;
         }
 
-        public void stop() {
+        public void close() {
             this.sSMap.clear();
         }
 

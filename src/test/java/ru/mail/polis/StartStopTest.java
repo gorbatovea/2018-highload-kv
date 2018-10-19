@@ -72,10 +72,14 @@ class StartStopTest extends TestBase {
             client.close();
         }
         client = new HttpClient(new ConnectionString("http://localhost:" + port));
+        client.setTimeout(1000);
+        client.setConnectTimeout(1000);
+        client.setReadTimeout(1000);
     }
 
     @Test
-    void create() {
+    void create() throws Exception{
+//        Thread.sleep(60000);
         assertTimeoutPreemptively(TIMEOUT, () -> {
             assertThrows(PoolException.class, this::status);
         });

@@ -32,7 +32,7 @@ public final class Server {
         // Not instantiable
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException,Exception {
         // Temporary storage in the file system
         final File data = Files.createTempDirectory();
 
@@ -43,7 +43,8 @@ public final class Server {
                         PORT,
                         dao,
                         Collections.singleton("http://localhost:" + PORT));
-        storage.start();
+//        storage.start();
+        storage.wait();
         Runtime.getRuntime().addShutdownHook(
                 new Thread(() -> {
                     storage.stop();
