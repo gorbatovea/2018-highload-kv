@@ -48,7 +48,7 @@ public class service extends HttpServer implements KVService {
     private final ArrayList<HttpClient> nodes = new ArrayList<>();
 
     @NotNull
-    private  HttpClient me = null;
+    private  HttpClient me;
 
     private RequestCondition requestCondition;
 
@@ -59,16 +59,17 @@ public class service extends HttpServer implements KVService {
         super(config);
         this.dao = (LSMDao) dao;
         String port = Integer.toString(config.acceptors[0].port);
-        topology.stream().forEach(node -> {
+        topology.forEach(node -> {
             HttpClient client = new HttpClient(new ConnectionString(node));
             nodes.add(client);
             if (me == null) {
                 if (node.split(":")[2].equals(port)) {
                     me = client;
-                }
-            }
+                } else logger.info("Node on " + node);
+            } else logger.info("Node on " + node);
         });
     }
+
 
     @Path(STATUS_PATH)
     public void status(Request request, HttpSession session) throws IOException {
@@ -128,7 +129,9 @@ public class service extends HttpServer implements KVService {
                     break;
                 }
                 default: {
-                    session.sendError(Response.METHOD_NOT_ALLOWED, null);
+                    Response response = buildResponse(Response.METHOD_NOT_ALLOWED, null, null);
+                    logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
+                    session.sendResponse(response);
                     break;
                 }
             }
@@ -170,7 +173,7 @@ public class service extends HttpServer implements KVService {
                 dao.upsert(id.getBytes(), value);
                 return new Response(Response.CREATED, Response.EMPTY);
             } catch (IOException iOE) {
-                iOE.printStackTrace();
+                logger.error(iOE.getClass());
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {

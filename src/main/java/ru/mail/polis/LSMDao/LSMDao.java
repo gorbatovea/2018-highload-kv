@@ -6,7 +6,6 @@ import ru.mail.polis.KVDao;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.file.FileVisitResult;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -97,7 +96,7 @@ public class LSMDao implements KVDao {
         private byte[] value;
         private long timeStamp;
 
-        public Value(byte[] value, @NotNull long timeStamp) {
+        public Value(byte[] value, long timeStamp) {
             this.value = value;
             this.timeStamp = timeStamp;
         }
@@ -114,7 +113,7 @@ public class LSMDao implements KVDao {
             return timeStamp;
         }
 
-        public void setTimeStamp(@NotNull long timeStamp) {
+        public void setTimeStamp(long timeStamp) {
             this.timeStamp = timeStamp;
         }
     }
@@ -290,7 +289,7 @@ public class LSMDao implements KVDao {
             private Long index;
             private long timeStamp;
 
-            public Value(Long index, @NotNull long timeStamp) {
+            public Value(Long index, long timeStamp) {
                 this.index = index;
                 this.timeStamp = timeStamp;
             }
@@ -307,7 +306,7 @@ public class LSMDao implements KVDao {
                 return timeStamp;
             }
 
-            public void setTimeStamp(@NotNull long timeStamp) {
+            public void setTimeStamp(long timeStamp) {
                 this.timeStamp = timeStamp;
             }
         }
