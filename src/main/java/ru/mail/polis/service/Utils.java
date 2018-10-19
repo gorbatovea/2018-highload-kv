@@ -1,13 +1,9 @@
 package ru.mail.polis.service;
 
-import javafx.collections.ObservableArray;
-import javafx.collections.transformation.SortedList;
-import javafx.util.Pair;
 import one.nio.http.HttpClient;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 
-import java.nio.ByteBuffer;
 import java.util.*;
 
 public class Utils {
@@ -27,6 +23,11 @@ public class Utils {
     public static final String ID_PARAM = "id=";
     public static final String REPLICAS_PARAM = "replicas=";
 
+    public static final String REQUEST_FROM = "Request from";
+    public static final String RESPONSE_TO = "Response to";
+    public static final String PROXIED = "proxied";
+    public static final String SPLITTER = " ";
+
     public enum HttpMethod {
         PUT,
         DELETE,
@@ -39,32 +40,27 @@ public class Utils {
         private ResponseHolder freshestResponse = new ResponseHolder(null, null, Long.MIN_VALUE);
 
         public RespAnalyzer(int condition) {
-            System.out.println("RespAnalyzer with RC:" + condition);
             this.condition = condition;
         }
 
         public void put(
                 @NotNull final Response response,
                 @NotNull final HttpClient client) throws IllegalArgumentException{
-            System.out.print("Putting response " + response.getStatus() + " with " + response.getHeader(TIMESTAMP_HEADER));
             try{
                 if (response.getStatus() == HTTP_CODE_OK || response.getStatus() == HTTP_CODE_NOT_FOUND) {
                     Long timeStamp = Long.parseLong(response.getHeader(TIMESTAMP_HEADER)); //could occurs exceptrion
                     ResponseHolder holder = new ResponseHolder(response, client, timeStamp);
                     if (holder.getTimeStamp() >= freshestResponse.getTimeStamp()) freshestResponse = holder;
                     this.responses.add(holder);
-                    System.out.println(" OK");
                 }
 
             } catch (Exception e) {
-                System.out.println(" FAILED");
                 e.printStackTrace();
                 throw new IllegalArgumentException();
             }
         }
 
         public Response getResponse() {
-            System.out.println("Getting response of " + this.responses.size());
             if (this.responses.size() >= this.condition) {
                  return this.freshestResponse.getResponse();
             } else {

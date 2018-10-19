@@ -24,9 +24,6 @@ dependencies {
     // Guava for tests
     testCompile("com.google.guava:guava:23.1-jre")
 
-    // HTTP client for unit tests
-    testCompile("org.apache.httpcomponents:fluent-hc:4.5.3")
-
     //logger
     compile("log4j:log4j:1.2.17")
 }

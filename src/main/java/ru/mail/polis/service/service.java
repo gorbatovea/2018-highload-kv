@@ -32,11 +32,13 @@ public class service extends HttpServer implements KVService {
     private final ArrayList<HttpClient> nodes = new ArrayList<>();
 
     @NotNull
-    private  HttpClient me;
+    private  HttpClient me = null;
 
     private RequestCondition requestCondition;
 
     private static final Logger logger = Logger.getLogger(service.class);
+
+    private static final String SPLITTER = " ";
 
     public service(
             @NotNull HttpServerConfig config,
@@ -45,7 +47,7 @@ public class service extends HttpServer implements KVService {
         super(config);
         this.dao = (LSMDao) dao;
         String port = Integer.toString(config.acceptors[0].port);
-        topology.forEach(node -> {
+        topology.stream().forEach(node -> {
             HttpClient client = new HttpClient(new ConnectionString(node));
             nodes.add(client);
             if (me == null) {
@@ -79,9 +81,28 @@ public class service extends HttpServer implements KVService {
         return id == null ? null : (id.isEmpty() ? null : id);
     }
 
+    private String buildString(@NotNull String splitter, String... chunks) {
+        StringBuilder builder = new StringBuilder();
+        for (String s: chunks) {
+            builder
+                    .append(s)
+                    .append(splitter);
+        }
+        return builder.toString();
+    }
+
     @Path(ENTITY_PATH)
     public void entity(Request request, HttpSession session) throws IOException {
         try {
+
+            this.logger.info(buildString(
+                    SPLITTER,
+                    REQUEST_FROM,
+                    request.getHost(),
+                    request.getPath(),
+                    PROXIED,
+                    Boolean.toString(request.getHeader(PROXY_HEADER)!= null)
+            ));
             String id = getId(request.getParameter(ID_PARAM));
             if (id == null) {
                 session.sendError(Response.BAD_REQUEST, null);
@@ -90,41 +111,44 @@ public class service extends HttpServer implements KVService {
             requestCondition = buildRC(request.getParameter(REPLICAS_PARAM));
             switch (request.getMethod()) {
                 case Request.METHOD_PUT: {
-                    System.out.println("METHOD PUT:" + Boolean.toString(request.getBody() != null));
-                    session.sendResponse(
-                            upsert(id, request.getBody(), request.getHeader(PROXY_HEADER) != null)
-                    );
+                    Response response = upsert(id, request.getBody(), request.getHeader(PROXY_HEADER) != null);
+                    session.sendResponse(response);
+                    this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     break;
                 }
                 case Request.METHOD_GET: {
-                    session.sendResponse(
-                            get(id, request.getHeader(PROXY_HEADER) != null)
-                    );
+                    Response response = get(id, request.getHeader(PROXY_HEADER) != null);
+                    session.sendResponse(response);
+                    this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     break;
                 }
                 case Request.METHOD_DELETE: {
-                    session.sendResponse(
-                            remove(id, request.getHeader(PROXY_HEADER) != null)
-                    );
+                    Response response = remove(id, request.getHeader(PROXY_HEADER) != null);
+                    session.sendResponse(response);
+                    this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     break;
                 }
                 default: {
                     Response response = buildResponse(Response.METHOD_NOT_ALLOWED, null, null);
-                    logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
+                    this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     session.sendResponse(response);
                     break;
                 }
             }
         } catch (IllegalArgumentException iAE) {
             logger.error(iAE);
-
-            session.sendError(Response.BAD_REQUEST, null);
+            Response response = buildResponse(Response.BAD_REQUEST, null, null);
+            this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), request.getHeader("PORT"), Integer.toString(response.getStatus())));
+            session.sendResponse(response);
         }
     }
 
     @Override
     public void handleDefault(Request request, HttpSession session) throws IOException {
-        session.sendError(Response.BAD_REQUEST, null);
+        this.logger.info("Request from " + request.getHost() + " " + request.getMethod());
+        Response response = buildResponse(Response.BAD_REQUEST, null, null);
+        this.logger.info("Response to " + request.getHost() + " " + response.getStatus());
+        session.sendResponse(response);
     }
 
     private Response upsert(@NotNull final String id, @NotNull final byte[] value, @NotNull final boolean proxied) {
@@ -133,7 +157,7 @@ public class service extends HttpServer implements KVService {
                 dao.upsert(id.getBytes(), value);
                 return new Response(Response.CREATED, Response.EMPTY);
             } catch (IOException iOE) {
-                logger.error(iOE.getClass());
+                this.logger.error(iOE.getClass());
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
@@ -148,7 +172,7 @@ public class service extends HttpServer implements KVService {
                         //requesting others nodes
                         if (sendProxied(HttpMethod.PUT, node, id, value).getStatus() == HTTP_CODE_CREATED) ack++;
                     }
-                } catch (Exception e) { e.printStackTrace(); }
+                } catch (Exception e) { this.logger.error(e.getMessage()); }
             }
             //making response to user
             return ack >= requestCondition.getAck() ?
@@ -178,7 +202,7 @@ public class service extends HttpServer implements KVService {
                         if (sendProxied(HttpMethod.DELETE, node, id, null).getStatus() == HTTP_CODE_ACCEPTED) ack++;
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    this.logger.error(e.getMessage());
                 }
             }
             //making response to user
@@ -196,7 +220,6 @@ public class service extends HttpServer implements KVService {
             //user request
             ArrayList<HttpClient> requestedNodes = getNodes(id);
             RespAnalyzer analyzer = new RespAnalyzer(requestCondition.getAck());
-            System.out.println("Requests to " + requestedNodes.size() + " node/nodes");
             for (HttpClient node : requestedNodes) {
                 if (node == me) {
                     //local get
@@ -206,8 +229,8 @@ public class service extends HttpServer implements KVService {
                     try {
                         analyzer.put(sendProxied(HttpMethod.GET, node, id, null), node);
                     } catch (Exception e) {
+                        this.logger.error(e.getMessage());
                         analyzer.put(new Response(Response.INTERNAL_ERROR, Response.EMPTY), node);
-                        e.printStackTrace();
                     }
                 }
             }
@@ -230,10 +253,10 @@ public class service extends HttpServer implements KVService {
 
         } catch (NoSuchElementException nSEE) {
             //404 Response with LONG.MIN_VALUE
-            nSEE.printStackTrace();
+            this.logger.error(nSEE.getClass());
             return buildResponse(Response.NOT_FOUND, Response.EMPTY, Long.MIN_VALUE);
         }catch (IOException iOE) {
-            iOE.printStackTrace();
+            this.logger.error(iOE.getClass());
             return buildResponse(Response.INTERNAL_ERROR, Response.EMPTY, null);
         }
     }
@@ -259,7 +282,9 @@ public class service extends HttpServer implements KVService {
 
     @NotNull
     private Response buildResponse(String respType, byte[] body, Long timeStamp) {
-        Response response = new Response(respType, body);
+        Response response = body == null ?
+                new Response(respType, Response.EMPTY) :
+                new Response(respType, body);
         if (timeStamp != null) {
             String header =
                     new StringBuilder()
