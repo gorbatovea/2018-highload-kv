@@ -130,13 +130,18 @@ public class service extends HttpServer implements KVService {
                 }
                 default: {
                     Response response = buildResponse(Response.METHOD_NOT_ALLOWED, null, null);
-                    this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
+                    this.logger.info(buildString(
+                            SPLITTER,
+                            RESPONSE_TO,
+                            request.getHost(),
+                            Integer.toString(response.getStatus())
+                            ));
                     session.sendResponse(response);
                     break;
                 }
             }
         } catch (IllegalArgumentException iAE) {
-            logger.error(iAE);
+            logger.error("Illegal argument found in request " + iAE.getMessage());
             Response response = buildResponse(Response.BAD_REQUEST, null, null);
             this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), request.getHeader("PORT"), Integer.toString(response.getStatus())));
             session.sendResponse(response);
@@ -157,7 +162,7 @@ public class service extends HttpServer implements KVService {
                 dao.upsert(id.getBytes(), value);
                 return new Response(Response.CREATED, Response.EMPTY);
             } catch (IOException iOE) {
-                this.logger.error(iOE.getClass());
+                this.logger.error("Can't upsert value into dao(proxied) " + iOE.getClass());
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
@@ -168,11 +173,10 @@ public class service extends HttpServer implements KVService {
                     if (node == me) {
                         dao.upsert(id.getBytes(), value);
                         ack++;
-                    } else {
-                        //requesting others nodes
-                        if (sendProxied(HttpMethod.PUT, node, id, value).getStatus() == HTTP_CODE_CREATED) ack++;
+                    } else if (sendProxied(HttpMethod.PUT, node, id, value).getStatus() == HTTP_CODE_CREATED) {
+                        ack++;
                     }
-                } catch (Exception e) { this.logger.error(e.getMessage()); }
+                } catch (Exception e) { this.logger.error("Exeption during user's upsert request " + e.getMessage()); }
             }
             //making response to user
             return ack >= requestCondition.getAck() ?
@@ -202,7 +206,7 @@ public class service extends HttpServer implements KVService {
                         if (sendProxied(HttpMethod.DELETE, node, id, null).getStatus() == HTTP_CODE_ACCEPTED) ack++;
                     }
                 } catch (Exception e) {
-                    this.logger.error(e.getMessage());
+                    this.logger.error("Exception during user's remove request " + e.getMessage());
                 }
             }
             //making response to user
@@ -221,17 +225,17 @@ public class service extends HttpServer implements KVService {
             ArrayList<HttpClient> requestedNodes = getNodes(id);
             RespAnalyzer analyzer = new RespAnalyzer(requestCondition.getAck());
             for (HttpClient node : requestedNodes) {
-                if (node == me) {
-                    //local get
-                    analyzer.put(getLocal(id), node);
-                } else {
-                    //requesting others node
-                    try {
+                try {
+                    if (node == me) {
+                        //local get
+                        analyzer.put(getLocal(id), node);
+                    } else {
+                        //requesting others node
                         analyzer.put(sendProxied(HttpMethod.GET, node, id, null), node);
-                    } catch (Exception e) {
-                        this.logger.error(e.getMessage());
-                        analyzer.put(new Response(Response.INTERNAL_ERROR, Response.EMPTY), node);
                     }
+                } catch(Exception e){
+                    this.logger.error("Exception during user's get request " + e.getMessage());
+                    analyzer.put(new Response(Response.INTERNAL_ERROR, Response.EMPTY), node);
                 }
             }
             //making response to user
@@ -253,10 +257,10 @@ public class service extends HttpServer implements KVService {
 
         } catch (NoSuchElementException nSEE) {
             //404 Response with LONG.MIN_VALUE
-            this.logger.error(nSEE.getClass());
+            this.logger.error("Storage exceptions occurs during getLocal" + nSEE.getClass());
             return buildResponse(Response.NOT_FOUND, Response.EMPTY, Long.MIN_VALUE);
         }catch (IOException iOE) {
-            this.logger.error(iOE.getClass());
+            this.logger.error("Storage exceptions occurs during getLocal" + iOE.getClass());
             return buildResponse(Response.INTERNAL_ERROR, Response.EMPTY, null);
         }
     }

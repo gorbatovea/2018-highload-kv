@@ -63,7 +63,7 @@ class TwoNodeTest extends ClusterTestBase {
     }
 
     @AfterEach
-    void afterEach() throws IOException {
+    void afterEach() throws IOException, Exception {
         stop(0, storage0);
         dao0.close();
         Files.recursiveDelete(data0);

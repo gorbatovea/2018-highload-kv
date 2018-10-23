@@ -19,7 +19,7 @@ public class LSMDao implements KVDao {
 
     final private SnapshotHolder holder;
 
-    private Long memTablesize = 0L;
+    private Long memTableSize = 0L;
 
     public LSMDao(final File dir) throws IOException {
         this.STORAGE_DIR = dir + File.separator;
@@ -29,67 +29,74 @@ public class LSMDao implements KVDao {
     @NotNull
     @Override
     public byte[] get(@NotNull byte[] key) throws IOException, NoSuchElementException {
-        Value value = this.memTable.get(ByteBuffer.wrap(key));
-        if (value == null) {
-            return this.holder.get(key);
-        } else {
-            if (value.getValue() == SnapshotHolder.REMOVED_VALUE) {
-                throw new NoSuchElementException();
+        synchronized (this) {
+            Value value = this.memTable.get(ByteBuffer.wrap(key));
+            if (value == null) {
+                return this.holder.get(key);
             } else {
-                return value.getValue();
+                if (value.getValue() == SnapshotHolder.REMOVED_VALUE) {
+                    throw new NoSuchElementException();
+                } else {
+                    return value.getValue();
+                }
             }
         }
     }
 
     @Override
     public void upsert(@NotNull byte[] key, @NotNull byte[] value) throws IOException {
-        this.memTable.put(ByteBuffer.wrap(key), new Value(value, System.currentTimeMillis()));
-        this.memTablesize += key.length + value.length;
-        if (memTablesize >= MEM_TABLE_TRASH_HOLD) {
-            this.holder.save(this.memTable);
-            this.memTable.clear();
-            this.memTablesize = 0L;
+        synchronized (this) {
+            this.memTable.put(ByteBuffer.wrap(key), new Value(value, System.currentTimeMillis()));
+            this.memTableSize += key.length + value.length;
+            if (memTableSize >= MEM_TABLE_TRASH_HOLD) {
+                this.holder.save(this.memTable);
+                this.memTable.clear();
+                this.memTableSize = 0L;
+            }
         }
     }
 
     @Override
     public void remove(@NotNull byte[] key) {
-        Value wrapper = this.memTable.get(ByteBuffer.wrap(key));
-        if (wrapper == null) return;
-        byte[] value = wrapper.getValue();
-        if (value != null) {
-            if (value != SnapshotHolder.REMOVED_VALUE) {
-                this.memTable.put(
-                        ByteBuffer.wrap(key),
-                        new Value(SnapshotHolder.REMOVED_VALUE, System.currentTimeMillis()));
+        synchronized (this) {
+            Value wrapper = this.memTable.get(ByteBuffer.wrap(key));
+            if (wrapper == null) {
+                if (this.holder.contains(key)) {
+                    this.memTable.put(
+                            ByteBuffer.wrap(key),
+                            new Value(SnapshotHolder.REMOVED_VALUE, System.currentTimeMillis()));
+                }
+            } else {
+                byte[] value = wrapper.getValue();
+                if (value != SnapshotHolder.REMOVED_VALUE) {
+                    this.memTable.put(
+                            ByteBuffer.wrap(key),
+                            new Value(SnapshotHolder.REMOVED_VALUE, System.currentTimeMillis()));
+                }
             }
-        } else if (this.holder.contains(key)) {
-            this.memTable.put(
-                    ByteBuffer.wrap(key),
-                    new Value(SnapshotHolder.REMOVED_VALUE, System.currentTimeMillis()));
         }
     }
 
     @Override
     public void close() throws IOException {
-        this.holder.save(this.memTable);
-        this.memTable.clear();
-        this.holder.close();
+        synchronized (this) {
+            this.holder.save(this.memTable);
+            this.memTable.clear();
+            this.holder.close();
+        }
     }
 
     public LSMDao.Value getWithMeta(@NotNull byte[] key) throws IOException, NoSuchElementException{
-        Value value = this.memTable.get(ByteBuffer.wrap(key));
-        if (value == null) {
-            return this.holder.getWithMeta(key);
-        } else {
-            if (value.getValue() == SnapshotHolder.REMOVED_VALUE) {
+        synchronized (this) {
+            Value value = this.memTable.get(ByteBuffer.wrap(key));
+            if (value == null) {
+                return this.holder.getWithMeta(key);
+            } else if (value.getValue() == SnapshotHolder.REMOVED_VALUE) {
                 return new Value(null, value.getTimeStamp());
-            }
-             else {
-                 return new Value(value.getValue(), value.getTimeStamp());
+            } else {
+                return new Value(value.getValue(), value.getTimeStamp());
             }
         }
-
     }
 
     public static class Value {

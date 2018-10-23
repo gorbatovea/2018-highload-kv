@@ -64,7 +64,9 @@ class StartStopTest extends TestBase {
     }
 
     private int status() throws Exception {
-        return client.get("/v0/status").getStatus();
+        return client
+                .get("/v0/status")
+                .getStatus();
     }
 
     private void reset() {
@@ -72,14 +74,11 @@ class StartStopTest extends TestBase {
             client.close();
         }
         client = new HttpClient(new ConnectionString("http://localhost:" + port));
-        client.setTimeout(1000);
-        client.setConnectTimeout(1000);
-        client.setReadTimeout(1000);
+        System.out.println(client.name() + " " + port);
     }
 
     @Test
     void create() throws Exception{
-//        Thread.sleep(60000);
         assertTimeoutPreemptively(TIMEOUT, () -> {
             assertThrows(PoolException.class, this::status);
         });
