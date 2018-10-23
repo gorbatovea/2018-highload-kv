@@ -4,7 +4,7 @@ import one.nio.http.HttpClient;
 import one.nio.http.Response;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
 
 public class Utils {
     public static final int HTTP_CODE_OK = 200;
