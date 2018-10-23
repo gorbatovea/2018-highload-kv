@@ -141,7 +141,7 @@ public class service extends HttpServer implements KVService {
                 }
             }
         } catch (IllegalArgumentException iAE) {
-            logger.error("Illegal argument found in request " + iAE.getMessage());
+            logger.error("Illegal argument found in request " + iAE);
             Response response = buildResponse(Response.BAD_REQUEST, null, null);
             this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), request.getHeader("PORT"), Integer.toString(response.getStatus())));
             session.sendResponse(response);
@@ -176,7 +176,7 @@ public class service extends HttpServer implements KVService {
                     } else if (sendProxied(HttpMethod.PUT, node, id, value).getStatus() == HTTP_CODE_CREATED) {
                         ack++;
                     }
-                } catch (Exception e) { this.logger.error("Exeption during user's upsert request " + e.getMessage()); }
+                } catch (Exception e) { this.logger.error("Exeption during user's upsert request " + e); }
             }
             //making response to user
             return ack >= requestCondition.getAck() ?
@@ -206,7 +206,7 @@ public class service extends HttpServer implements KVService {
                         if (sendProxied(HttpMethod.DELETE, node, id, null).getStatus() == HTTP_CODE_ACCEPTED) ack++;
                     }
                 } catch (Exception e) {
-                    this.logger.error("Exception during user's remove request " + e.getMessage());
+                    this.logger.error("Exception during user's remove request " + e);
                 }
             }
             //making response to user
@@ -234,7 +234,7 @@ public class service extends HttpServer implements KVService {
                         analyzer.put(sendProxied(HttpMethod.GET, node, id, null), node);
                     }
                 } catch(Exception e){
-                    this.logger.error("Exception during user's get request " + e.getMessage());
+                    this.logger.error("Exception during user's get request " + e);
                     analyzer.put(new Response(Response.INTERNAL_ERROR, Response.EMPTY), node);
                 }
             }
@@ -257,10 +257,10 @@ public class service extends HttpServer implements KVService {
 
         } catch (NoSuchElementException nSEE) {
             //404 Response with LONG.MIN_VALUE
-            this.logger.error("Storage exceptions occurs during getLocal" + nSEE.getClass());
+            this.logger.error("Storage exceptions occurs during getLocal " + nSEE);
             return buildResponse(Response.NOT_FOUND, Response.EMPTY, Long.MIN_VALUE);
         }catch (IOException iOE) {
-            this.logger.error("Storage exceptions occurs during getLocal" + iOE.getClass());
+            this.logger.error("Storage exceptions occurs during getLocal " + iOE);
             return buildResponse(Response.INTERNAL_ERROR, Response.EMPTY, null);
         }
     }
