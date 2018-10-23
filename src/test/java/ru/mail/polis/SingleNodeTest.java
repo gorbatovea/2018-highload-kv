@@ -16,8 +16,9 @@
 
 package ru.mail.polis;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.fluent.Request;
+import one.nio.http.HttpClient;
+import one.nio.http.Response;
+import one.nio.net.ConnectionString;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -27,6 +28,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -36,59 +38,69 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Vadim Tsesko <incubos@yandex.com>
  */
 class SingleNodeTest extends TestBase {
-    private static final Duration TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration TIMEOUT = Duration.ofMinutes(1);
     private static File data;
     private static KVDao dao;
+    private static int port;
     private static String endpoint;
     private static KVService storage;
+    private static HttpClient client;
 
     @BeforeAll
-    static void beforeAll() throws IOException {
-        final int port = randomPort();
+    static void beforeAll() throws Exception {
+        port = randomPort();
         data = Files.createTempDirectory();
         dao = KVDaoFactory.create(data);
         endpoint = endpoint(port);
         storage = KVServiceFactory.create(port, dao, Collections.singleton(endpoint));
         storage.start();
+        Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+        reset();
     }
 
     @AfterAll
     static void afterAll() throws IOException {
+        client.close();
         storage.stop();
         dao.close();
         Files.recursiveDelete(data);
     }
 
-    @NotNull
-    private String url(@NotNull final String id) {
-        return endpoint + "/v0/entity?id=" + id;
+    private static void reset() {
+        if (client != null) {
+            client.close();
+        }
+        client = new HttpClient(
+                new ConnectionString(
+                        "http://localhost:" + port +
+                                "?timeout=" + (TIMEOUT.toMillis() / 2)));
     }
 
     @NotNull
-    private String absentParameterUrl() {
-        return endpoint + "/v0/entity";
+    private String path(@NotNull final String id) {
+        return "/v0/entity?id=" + id;
     }
 
-    private HttpResponse get(@NotNull final String key) throws IOException {
-        return Request.Get(url(key)).execute().returnResponse();
+    private Response get(@NotNull final String key) throws Exception {
+        return client.get(path(key));
     }
 
-    private HttpResponse delete(@NotNull final String key) throws IOException {
-        return Request.Delete(url(key)).execute().returnResponse();
+    private Response delete(@NotNull final String key) throws Exception {
+        return client.delete(path(key));
     }
 
-    private HttpResponse upsert(
+    private Response upsert(
             @NotNull final String key,
-            @NotNull final byte[] data) throws IOException {
-        return Request.Put(url(key)).bodyByteArray(data).execute().returnResponse();
+            @NotNull final byte[] data) throws Exception {
+        return client.put(path(key), data);
     }
 
     @Test
     void emptyKey() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
-            assertEquals(400, get("").getStatusLine().getStatusCode());
-            assertEquals(400, delete("").getStatusLine().getStatusCode());
-            assertEquals(400, upsert("", new byte[]{0}).getStatusLine().getStatusCode());
+            assertEquals(400, get("").getStatus());
+            assertEquals(400, delete("").getStatus());
+            assertEquals(400, upsert("", new byte[]{0}).getStatus());
         });
     }
 
@@ -96,59 +108,59 @@ class SingleNodeTest extends TestBase {
     void absentParameterRequest() {
         assertTimeoutPreemptively(TIMEOUT, () -> assertEquals(
                 400,
-                Request.Get(absentParameterUrl()).execute().returnResponse()
-                        .getStatusLine().getStatusCode()));
+                client.get("/v0/entity").getStatus()));
     }
 
     @Test
     void badRequest() {
         assertTimeoutPreemptively(TIMEOUT, () -> assertEquals(
-                404,
-                Request.Get(url("/abracadabra")).execute().returnResponse()
-                        .getStatusLine().getStatusCode()));
+                400,
+                client.get("/abracadabra").getStatus()));
     }
 
     @Test
     void getAbsent() {
         assertTimeoutPreemptively(TIMEOUT, () -> assertEquals(
                 404,
-                get("absent").getStatusLine().getStatusCode()));
+                get("absent").getStatus()));
     }
 
     @Test
     void deleteAbsent() {
-        assertTimeout(TIMEOUT, () -> assertEquals(202, delete("absent").getStatusLine().getStatusCode()));
+        assertTimeoutPreemptively(TIMEOUT, () -> assertEquals(
+                202,
+                delete("absent").getStatus()));
     }
 
     @Test
     void insert() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(key, value).getStatus());
 
             // Check
-            final HttpResponse response = get(key);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(value, payloadOf(response));
+            final Response response = get(key);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value, response.getBody());
         });
     }
 
     @Test
     void insertEmpty() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = new byte[0];
 
             // Insert
-            assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(key, value).getStatus());
 
             // Check
-            final HttpResponse response = get(key);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(value, payloadOf(response));
+            final Response response = get(key);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value, response.getBody());
         });
     }
 
@@ -161,98 +173,102 @@ class SingleNodeTest extends TestBase {
             final byte[] value2 = randomValue();
 
             // Insert 1
-            assertEquals(201, upsert(key1, value1).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(key1, value1).getStatus());
 
             // Check
-            assertArrayEquals(value1, payloadOf(get(key1)));
+            assertArrayEquals(value1, get(key1).getBody());
 
             // Insert 2
-            assertEquals(201, upsert(key2, value2).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(key2, value2).getStatus());
 
             // Check
-            assertArrayEquals(value1, payloadOf(get(key1)));
-            assertArrayEquals(value2, payloadOf(get(key2)));
+            assertArrayEquals(value1, get(key1).getBody());
+            assertArrayEquals(value2, get(key2).getBody());
 
             // Delete 1
-            assertEquals(202, delete(key1).getStatusLine().getStatusCode());
+            assertEquals(202, delete(key1).getStatus());
 
             // Check
-            assertEquals(404, get(key1).getStatusLine().getStatusCode());
-            assertArrayEquals(value2, payloadOf(get(key2)));
+            assertEquals(404, get(key1).getStatus());
+            assertArrayEquals(value2, get(key2).getBody());
 
             // Delete 2
-            assertEquals(202, delete(key2).getStatusLine().getStatusCode());
+            assertEquals(202, delete(key2).getStatus());
 
             // Check
-            assertEquals(404, get(key2).getStatusLine().getStatusCode());
+            assertEquals(404, get(key2).getStatus());
         });
     }
 
     @Test
     void upsert() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value1 = randomValue();
             final byte[] value2 = randomValue();
 
             // Insert value1
-            assertEquals(201, upsert(key, value1).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(key, value1).getStatus());
 
             // Insert value2
-            assertEquals(201, upsert(key, value2).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(key, value2).getStatus());
 
             // Check value 2
-            final HttpResponse response = get(key);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(value2, payloadOf(response));
+            final Response response = get(key);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value2, response.getBody());
         });
     }
 
     @Test
     void respectFileFolder() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
 
             // Insert value
-            assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(key, value).getStatus());
 
             // Check value
-            final HttpResponse response = get(key);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(value, payloadOf(response));
+            final Response response = get(key);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value, response.getBody());
 
             // Remove data and recreate
             storage.stop();
+            dao.close();
             Files.recursiveDelete(data);
-            final int port = randomPort();
             java.nio.file.Files.createDirectory(data.toPath());
+            dao = KVDaoFactory.create(data);
+            port = randomPort();
             endpoint = endpoint(port);
             storage = KVServiceFactory.create(port, dao, Collections.singleton(endpoint));
             storage.start();
+            Thread.sleep(TimeUnit.SECONDS.toMillis(1));
+            reset();
 
             // Check absent data
-            assertEquals(404, get(key).getStatusLine().getStatusCode());
+            assertEquals(404, get(key).getStatus());
         });
     }
 
     @Test
     void upsertEmpty() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
             final byte[] empty = new byte[0];
 
             // Insert value
-            assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(key, value).getStatus());
 
             // Insert empty
-            assertEquals(201, upsert(key, empty).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(key, empty).getStatus());
 
             // Check empty
-            final HttpResponse response = get(key);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(empty, payloadOf(response));
+            final Response response = get(key);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(empty, response.getBody());
         });
     }
 
@@ -263,13 +279,13 @@ class SingleNodeTest extends TestBase {
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(key, value).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(key, value).getStatus());
 
             // Delete
-            assertEquals(202, delete(key).getStatusLine().getStatusCode());
+            assertEquals(202, delete(key).getStatus());
 
             // Check
-            assertEquals(404, get(key).getStatusLine().getStatusCode());
+            assertEquals(404, get(key).getStatus());
         });
     }
 }

@@ -16,7 +16,7 @@
 
 package ru.mail.polis;
 
-import org.apache.http.HttpResponse;
+import one.nio.http.Response;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author Vadim Tsesko <mail@incubos.org>
  */
 class ThreeNodeTest extends ClusterTestBase {
-    private static final Duration TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration TIMEOUT = Duration.ofMinutes(1);
     private int port0;
     private int port1;
     private int port2;
@@ -52,7 +52,7 @@ class ThreeNodeTest extends ClusterTestBase {
     private KVService storage2;
 
     @BeforeEach
-    void beforeEach() throws IOException {
+    void beforeEach() throws Exception {
         port0 = randomPort();
         port1 = randomPort();
         port2 = randomPort();
@@ -68,18 +68,18 @@ class ThreeNodeTest extends ClusterTestBase {
         storage1 = KVServiceFactory.create(port1, dao1, endpoints);
         storage1.start();
         storage2 = KVServiceFactory.create(port2, dao2, endpoints);
-        storage2.start();
+        start(2, storage2);
     }
 
     @AfterEach
     void afterEach() throws IOException {
-        storage0.stop();
+        stop(0, storage0);
         dao0.close();
         Files.recursiveDelete(data0);
-        storage1.stop();
+        stop(1, storage1);
         dao1.close();
         Files.recursiveDelete(data1);
-        storage2.stop();
+        stop(2, storage2);
         dao2.close();
         Files.recursiveDelete(data2);
         endpoints = Collections.emptySet();
@@ -87,235 +87,238 @@ class ThreeNodeTest extends ClusterTestBase {
 
     @Test
     void tooSmallRF() {
-        assertTimeout(TIMEOUT, () -> {
-            assertEquals(400, get(0, randomId(), 0, 3).getStatusLine().getStatusCode());
-            assertEquals(400, upsert(0, randomId(), randomValue(), 0, 3).getStatusLine().getStatusCode());
-            assertEquals(400, delete(0, randomId(), 0, 3).getStatusLine().getStatusCode());
+        assertTimeoutPreemptively(TIMEOUT, () -> {
+            assertEquals(400, get(0, randomId(), 0, 3).getStatus());
+            assertEquals(400, upsert(0, randomId(), randomValue(), 0, 3).getStatus());
+            assertEquals(400, delete(0, randomId(), 0, 3).getStatus());
         });
     }
 
     @Test
     void tooBigRF() {
-        assertTimeout(TIMEOUT, () -> {
-            assertEquals(400, get(0, randomId(), 4, 3).getStatusLine().getStatusCode());
-            assertEquals(400, upsert(0, randomId(), randomValue(), 4, 3).getStatusLine().getStatusCode());
-            assertEquals(400, delete(0, randomId(), 4, 3).getStatusLine().getStatusCode());
+        assertTimeoutPreemptively(TIMEOUT, () -> {
+            assertEquals(400, get(0, randomId(), 4, 3).getStatus());
+            assertEquals(400, upsert(0, randomId(), randomValue(), 4, 3).getStatus());
+            assertEquals(400, delete(0, randomId(), 4, 3).getStatus());
         });
     }
 
     @Test
     void unreachableRF() {
-        assertTimeout(TIMEOUT, () -> {
-            storage0.stop();
-            assertEquals(504, get(1, randomId(), 3, 3).getStatusLine().getStatusCode());
-            assertEquals(504, upsert(1, randomId(), randomValue(), 3, 3).getStatusLine().getStatusCode());
-            assertEquals(504, delete(1, randomId(), 3, 3).getStatusLine().getStatusCode());
+        assertTimeoutPreemptively(TIMEOUT, () -> {
+            stop(0, storage0);
+            assertEquals(504, get(1, randomId(), 3, 3).getStatus());
+            assertEquals(504, upsert(1, randomId(), randomValue(), 3, 3).getStatus());
+            assertEquals(504, delete(1, randomId(), 3, 3).getStatus());
         });
     }
 
     @Test
     void overlapRead() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, value, 2, 3).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(0, key, value, 2, 3).getStatus());
 
             // Check
-            final HttpResponse response = get(1, key, 2, 3);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(value, payloadOf(response));
+            final Response response = get(1, key, 2, 3);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value, response.getBody());
         });
     }
 
     @Test
     void overlapWrite() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, value, 2, 3).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(0, key, value, 2, 3).getStatus());
 
             // Check
-            final HttpResponse response = get(1, key, 2, 3);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(value, payloadOf(response));
+            final Response response = get(1, key, 2, 3);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value, response.getBody());
         });
     }
 
     @Test
     void overwrite() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value1 = randomValue();
             final byte[] value2 = randomValue();
 
             // Insert 1
-            assertEquals(201, upsert(0, key, value1, 2, 3).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(0, key, value1, 2, 3).getStatus());
 
             // Check 1
-            HttpResponse response = get(1, key, 2, 3);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(value1, payloadOf(response));
+            Response response = get(1, key, 2, 3);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value1, response.getBody());
 
             // Help implementors with second precision for conflict resolution
             Thread.sleep(TimeUnit.SECONDS.toMillis(1));
 
             // Insert 2
-            assertEquals(201, upsert(2, key, value2, 2, 3).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(2, key, value2, 2, 3).getStatus());
 
             // Check 2
             response = get(1, key, 2, 3);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(value2, payloadOf(response));
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value2, response.getBody());
         });
     }
 
     @Test
     void overlapDelete() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, value, 2, 3).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(0, key, value, 2, 3).getStatus());
 
             // Check
-            HttpResponse response = get(1, key, 2, 3);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(value, payloadOf(response));
+            Response response = get(1, key, 2, 3);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value, response.getBody());
 
             // Delete
-            assertEquals(202, delete(0, key, 2, 3).getStatusLine().getStatusCode());
+            assertEquals(202, delete(0, key, 2, 3).getStatus());
 
             // Check
             response = get(1, key, 2, 3);
-            assertEquals(404, response.getStatusLine().getStatusCode());
+            assertEquals(404, response.getStatus());
         });
     }
 
     @Test
     void missedWrite() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
 
             // Stop node 1
-            storage1.stop();
+            stop(1, storage1);
 
             // Insert
-            assertEquals(201, upsert(0, key, value, 2, 3).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(0, key, value, 2, 3).getStatus());
 
             // Start node 1
             storage1 = KVServiceFactory.create(port1, dao1, endpoints);
-            storage1.start();
+            start(1, storage1);
 
             // Check
-            final HttpResponse response = get(1, key, 2, 3);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(value, payloadOf(response));
+            final Response response = get(1, key, 2, 3);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value, response.getBody());
         });
     }
 
     @Test
     void missedDelete() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, value, 2, 3).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(0, key, value, 2, 3).getStatus());
 
             // Stop node 0
-            storage0.stop();
+            stop(0, storage0);
+
+            // Help implementors with second precision for conflict resolution
+            Thread.sleep(TimeUnit.SECONDS.toMillis(1));
 
             // Delete
-            assertEquals(202, delete(1, key, 2, 3).getStatusLine().getStatusCode());
+            assertEquals(202, delete(1, key, 2, 3).getStatus());
 
             // Start node 0
             storage0 = KVServiceFactory.create(port0, dao0, endpoints);
-            storage0.start();
+            start(0, storage0);
 
             // Check
-            final HttpResponse response = get(0, key, 2, 3);
-            assertEquals(404, response.getStatusLine().getStatusCode());
+            final Response response = get(0, key, 2, 3);
+            assertEquals(404, response.getStatus());
         });
     }
 
     @Test
     void tolerateFailure() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
 
             // Insert into node 2
-            assertEquals(201, upsert(2, key, value, 2, 3).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(2, key, value, 2, 3).getStatus());
 
             // Stop node 2
-            storage2.stop();
+            stop(2, storage2);
 
             // Check
-            HttpResponse response = get(1, key, 2, 3);
-            assertEquals(200, response.getStatusLine().getStatusCode());
-            assertArrayEquals(value, payloadOf(response));
+            Response response = get(1, key, 2, 3);
+            assertEquals(200, response.getStatus());
+            assertArrayEquals(value, response.getBody());
 
             // Delete
-            assertEquals(202, delete(0, key, 2, 3).getStatusLine().getStatusCode());
+            assertEquals(202, delete(0, key, 2, 3).getStatus());
 
             // Check
             response = get(1, key, 2, 3);
-            assertEquals(404, response.getStatusLine().getStatusCode());
+            assertEquals(404, response.getStatus());
         });
     }
 
     @Test
     void respectRF1() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, value, 1, 1).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(0, key, value, 1, 1).getStatus());
 
             int copies = 0;
 
             // Stop all nodes
-            storage0.stop();
-            storage1.stop();
-            storage2.stop();
+            stop(0, storage0);
+            stop(1, storage1);
+            stop(2, storage2);
 
             // Start node 0
             storage0 = KVServiceFactory.create(port0, dao0, endpoints);
-            storage0.start();
+            start(0, storage0);
 
             // Check node 0
-            if (get(0, key, 1, 1).getStatusLine().getStatusCode() == 200) {
+            if (get(0, key, 1, 1).getStatus() == 200) {
                 copies++;
             }
 
             // Stop node 0
-            storage0.stop();
+            stop(0, storage0);
 
             // Start node 1
             storage1 = KVServiceFactory.create(port1, dao1, endpoints);
-            storage1.start();
+            start(1, storage1);
 
             // Check node 1
-            if (get(1, key, 1, 1).getStatusLine().getStatusCode() == 200) {
+            if (get(1, key, 1, 1).getStatus() == 200) {
                 copies++;
             }
 
             // Stop node 1
-            storage1.stop();
+            stop(1, storage1);
 
             // Start node 2
             storage2 = KVServiceFactory.create(port2, dao2, endpoints);
-            storage2.start();
+            start(2, storage2);
 
             // Check node 2
-            if (get(2, key, 1, 1).getStatusLine().getStatusCode() == 200) {
+            if (get(2, key, 1, 1).getStatus() == 200) {
                 copies++;
             }
 
@@ -323,7 +326,7 @@ class ThreeNodeTest extends ClusterTestBase {
             storage0 = KVServiceFactory.create(port0, dao0, endpoints);
             storage0.start();
             storage1 = KVServiceFactory.create(port1, dao1, endpoints);
-            storage1.start();
+            start(1, storage1);
 
             // Check
             assertEquals(1, copies);
@@ -332,50 +335,50 @@ class ThreeNodeTest extends ClusterTestBase {
 
     @Test
     void respectRF2() {
-        assertTimeout(TIMEOUT, () -> {
+        assertTimeoutPreemptively(TIMEOUT, () -> {
             final String key = randomId();
             final byte[] value = randomValue();
 
             // Insert
-            assertEquals(201, upsert(0, key, value, 2, 2).getStatusLine().getStatusCode());
+            assertEquals(201, upsert(0, key, value, 2, 2).getStatus());
 
             int copies = 0;
 
             // Stop all nodes
-            storage0.stop();
-            storage1.stop();
-            storage2.stop();
+            stop(0, storage0);
+            stop(1, storage1);
+            stop(2, storage2);
 
             // Start node 0
             storage0 = KVServiceFactory.create(port0, dao0, endpoints);
-            storage0.start();
+            start(0, storage0);
 
             // Check node 0
-            if (get(0, key, 1, 2).getStatusLine().getStatusCode() == 200) {
+            if (get(0, key, 1, 2).getStatus() == 200) {
                 copies++;
             }
 
             // Stop node 0
-            storage0.stop();
+            stop(0, storage0);
 
             // Start node 1
             storage1 = KVServiceFactory.create(port1, dao1, endpoints);
-            storage1.start();
+            start(1, storage1);
 
             // Check node 1
-            if (get(1, key, 1, 2).getStatusLine().getStatusCode() == 200) {
+            if (get(1, key, 1, 2).getStatus() == 200) {
                 copies++;
             }
 
             // Stop node 1
-            storage1.stop();
+            stop(1, storage1);
 
             // Start node 2
             storage2 = KVServiceFactory.create(port2, dao2, endpoints);
-            storage2.start();
+            start(2, storage2);
 
             // Check node 2
-            if (get(2, key, 1, 2).getStatusLine().getStatusCode() == 200) {
+            if (get(2, key, 1, 2).getStatus() == 200) {
                 copies++;
             }
 
@@ -383,7 +386,7 @@ class ThreeNodeTest extends ClusterTestBase {
             storage0 = KVServiceFactory.create(port0, dao0, endpoints);
             storage0.start();
             storage1 = KVServiceFactory.create(port1, dao1, endpoints);
-            storage1.start();
+            start(1, storage1);
 
             // Check
             assertEquals(2, copies);
