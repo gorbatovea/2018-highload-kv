@@ -1,13 +1,9 @@
 package ru.mail.polis.service;
 
-import com.sun.xml.internal.bind.v2.model.core.ID;
 import one.nio.http.*;
 import one.nio.net.ConnectionString;
-
 import org.apache.log4j.Logger;
-import org.apache.log4j.spi.LoggerFactory;
 import org.jetbrains.annotations.NotNull;
-
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.KVDao;
 import ru.mail.polis.KVService;
@@ -15,8 +11,6 @@ import ru.mail.polis.LSMDao.LSMDao;
 import ru.mail.polis.service.Utils.*;
 
 import java.io.IOException;
-import java.lang.reflect.Executable;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.NoSuchElementException;
 import java.util.Set;
