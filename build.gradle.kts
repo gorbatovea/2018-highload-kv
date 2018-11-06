@@ -23,6 +23,9 @@ dependencies {
 
     // Guava for tests
     testCompile("com.google.guava:guava:23.1-jre")
+
+    //logger
+    compile("log4j:log4j:1.2.17")
 }
 
 tasks {
