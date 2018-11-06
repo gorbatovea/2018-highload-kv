@@ -28,8 +28,6 @@ public class service extends HttpServer implements KVService {
     @NotNull
     private  HttpClient me = null;
 
-    private RequestCondition requestCondition;
-
     private static final Logger logger = Logger.getLogger(service.class);
 
     private static final String SPLITTER = " ";
@@ -102,22 +100,22 @@ public class service extends HttpServer implements KVService {
                 session.sendError(Response.BAD_REQUEST, null);
                 return;
             }
-            requestCondition = buildRC(request.getParameter(REPLICAS_PARAM));
+            RequestCondition rc = buildRC(request.getParameter(REPLICAS_PARAM));
             switch (request.getMethod()) {
                 case Request.METHOD_PUT: {
-                    Response response = upsert(id, request.getBody(), request.getHeader(PROXY_HEADER) != null);
+                    Response response = upsert(id, request.getBody(), request.getHeader(PROXY_HEADER) != null, rc);
                     session.sendResponse(response);
                     this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     break;
                 }
                 case Request.METHOD_GET: {
-                    Response response = get(id, request.getHeader(PROXY_HEADER) != null);
+                    Response response = get(id, request.getHeader(PROXY_HEADER) != null, rc);
                     session.sendResponse(response);
                     this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     break;
                 }
                 case Request.METHOD_DELETE: {
-                    Response response = remove(id, request.getHeader(PROXY_HEADER) != null);
+                    Response response = remove(id, request.getHeader(PROXY_HEADER) != null, rc);
                     session.sendResponse(response);
                     this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     break;
@@ -150,7 +148,7 @@ public class service extends HttpServer implements KVService {
         session.sendResponse(response);
     }
 
-    private Response upsert(@NotNull final String id, @NotNull final byte[] value, @NotNull final boolean proxied) {
+    private Response upsert(@NotNull final String id, @NotNull final byte[] value, @NotNull final boolean proxied, final RequestCondition rc) {
         if (proxied) {
             try {
                 dao.upsert(id.getBytes(), value);
@@ -160,7 +158,7 @@ public class service extends HttpServer implements KVService {
                 return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
             }
         } else {
-            ArrayList<HttpClient> requestedNodes = getNodes(id);
+            ArrayList<HttpClient> requestedNodes = getNodes(id, rc);
             int ack = 0;
             for (HttpClient node : requestedNodes) {
                 try {
@@ -173,21 +171,21 @@ public class service extends HttpServer implements KVService {
                 } catch (Exception e) { this.logger.error("Exeption during user's upsert request " + e); }
             }
             //making response to user
-            return ack >= requestCondition.getAck() ?
+            return ack >= rc.getAck() ?
                     new Response(Response.CREATED, Response.EMPTY) :
                     new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
     }
 
     @NotNull
-    private Response remove (@NotNull final String id, @NotNull final boolean proxied) {
+    private Response remove (@NotNull final String id, @NotNull final boolean proxied, final RequestCondition rc) {
         if (proxied) {
             //coordinator request
             dao.remove(id.getBytes());
             return new Response(Response.ACCEPTED, Response.EMPTY);
         } else {
             //user request
-            ArrayList<HttpClient> requestedNodes = getNodes(id);
+            ArrayList<HttpClient> requestedNodes = getNodes(id, rc);
             int ack = 0;
             for (HttpClient node : requestedNodes) {
                 try {
@@ -204,20 +202,20 @@ public class service extends HttpServer implements KVService {
                 }
             }
             //making response to user
-            return ack >= requestCondition.getAck() ?
+            return ack >= rc.getAck() ?
                     new Response(Response.ACCEPTED, Response.EMPTY) :
                     new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
         }
     }
 
-    private Response get(@NotNull final String id, @NotNull final boolean proxied) {
+    private Response get(@NotNull final String id, @NotNull final boolean proxied, final RequestCondition rc) {
         if (proxied) {
             //coordinator request
             return getLocal(id);
         } else {
             //user request
-            ArrayList<HttpClient> requestedNodes = getNodes(id);
-            RespAnalyzer analyzer = new RespAnalyzer(requestCondition.getAck());
+            ArrayList<HttpClient> requestedNodes = getNodes(id, rc);
+            RespAnalyzer analyzer = new RespAnalyzer(rc.getAck());
             for (HttpClient node : requestedNodes) {
                 try {
                     if (node == me) {
@@ -294,13 +292,13 @@ public class service extends HttpServer implements KVService {
         return response;
     }
 
-    private ArrayList<HttpClient> getNodes(@NotNull String id) throws IllegalArgumentException{
+    private ArrayList<HttpClient> getNodes(@NotNull String id, final RequestCondition rc) throws IllegalArgumentException{
         if (id.isEmpty()) throw new IllegalArgumentException();
-        int base = abs(id.hashCode()) % requestCondition.getFrom();
+        int base = abs(id.hashCode()) % rc.getFrom();
         ArrayList<HttpClient> result = new ArrayList<>();
-        for(int i = 0; i < requestCondition.getFrom(); i++){
+        for(int i = 0; i < rc.getFrom(); i++){
             result.add(nodes.get(base));
-            base = abs((base + 1)) % requestCondition.getFrom();
+            base = abs((base + 1)) % rc.getFrom();
         }
         return result;
     }
