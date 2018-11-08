@@ -1,4 +1,4 @@
-package ru.mail.polis.LSMDao;
+package LSMDao;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.KVDao;
@@ -21,7 +21,7 @@ public class LSMDao implements KVDao {
 
     final private SnapshotHolder holder;
 
-    private Long memTableSize = 0L;
+    private int memTableSize = 0;
 
     public LSMDao(final File dir) throws IOException {
         this.STORAGE_DIR = dir + File.separator;
@@ -82,9 +82,9 @@ public class LSMDao implements KVDao {
     private void flush() throws IOException{
         synchronized (this.holder) {
             if (memTableSize >= MEM_TABLE_TRASH_HOLD) {
-                this.holder.save(this.memTable);
+                this.holder.save(this.memTable, this.memTableSize);
                 this.memTable.clear();
-                this.memTableSize = 0L;
+                this.memTableSize = 0;
             }
         }
     }
@@ -93,7 +93,7 @@ public class LSMDao implements KVDao {
     public void close() throws IOException {
         synchronized (this) {
             synchronized (this.holder) {
-                this.holder.save(this.memTable);
+                this.holder.save(this.memTable, memTableSize);
                 this.memTable.clear();
                 this.holder.close();
             }
@@ -275,45 +275,46 @@ public class LSMDao implements KVDao {
             return this.sSMap.containsKey(ByteBuffer.wrap(key));
         }
 
-        public void save(SortedMap<ByteBuffer, LSMDao.Value> source) throws IOException {
+        public void save(SortedMap<ByteBuffer, LSMDao.Value> source, int bytes) throws IOException {
             int offset = 0;
             File dist = new File(this.storage + File.separator + fileNumber.toString());
-            if (!dist.createNewFile())
-                throw new IOException();
+            if (!dist.createNewFile()) throw new IOException();
 
-            ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);
-            OutputStream outputStream = new FileOutputStream(dist);
-            outputStream.write(ByteBuffer.allocate(Long.BYTES).putLong(System.currentTimeMillis()).array());
-            outputStream.write(intBuffer.putInt(source.size()).array());
-            intBuffer.clear();
+            int size = Long.BYTES
+                    + Integer.BYTES
+                    + (Integer.BYTES + Integer.BYTES + Integer.BYTES) * source.size()
+                    + bytes;
 
-            for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
-                outputStream.write(intBuffer.putInt(entry.getKey().array().length).array());
-                intBuffer.clear();
-                outputStream.write(entry.getKey().array());
-                if (entry.getValue().getValue() == REMOVED_VALUE) {
-                    outputStream.write(intBuffer.putInt(REMOVED_MARK).array());
-                    intBuffer.clear();
-                } else {
-                    outputStream.write(intBuffer.putInt(offset).array());
-                    intBuffer.clear();
-                    offset += Integer.BYTES + entry.getValue().getValue().length;
-                }
-                outputStream.write(ByteBuffer.allocate(Long.BYTES).putLong(entry.getValue().getTimeStamp()).array());
-            }
+            ByteBuffer buffer = ByteBuffer.allocate(size)
+                    .putLong(System.currentTimeMillis())
+                    .putInt(source.size());
 
-            for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
-                outputStream.write(intBuffer.putInt(entry.getValue().getValue().length).array());
-                intBuffer.clear();
-                outputStream.write(entry.getValue().getValue());
-            }
-            outputStream.flush();
-            outputStream.close();
             for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
                 this.sSMap.put(
                         entry.getKey(),
                         new LSMDao.SnapshotHolder.Value(fileNumber, entry.getValue().getTimeStamp()));
+
+                buffer.putInt(entry.getKey().capacity())
+                        .put(entry.getKey());
+
+                if (entry.getValue().getValue() == REMOVED_VALUE) {
+                    buffer.putInt(REMOVED_MARK);
+                } else {
+                    buffer.putInt(offset);
+                    offset += Integer.BYTES + entry.getValue().getValue().length;
+                }
+
+                buffer.putLong(entry.getValue().getTimeStamp());
             }
+
+            for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
+                buffer.putInt(entry.getValue().getValue().length)
+                        .put(entry.getValue().getValue());
+            }
+            OutputStream outputStream = new FileOutputStream(dist);
+            outputStream.write(buffer.array());
+            outputStream.flush();
+            outputStream.close();
             fileNumber++;
         }
 
@@ -348,5 +349,3 @@ public class LSMDao implements KVDao {
         }
     }
 }
-
-
