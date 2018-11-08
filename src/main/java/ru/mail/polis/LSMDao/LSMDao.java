@@ -311,6 +311,7 @@ public class LSMDao implements KVDao {
             for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
                 buffer.putInt(entry.getValue().getValue().length)
                         .put(entry.getValue().getValue());
+                source.remove(entry.getKey());
             }
             OutputStream outputStream = new FileOutputStream(dist);
             outputStream.write(buffer.array());
