@@ -1,4 +1,4 @@
-package LSMDao;
+package ru.mail.polis.LSMDao;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.KVDao;
