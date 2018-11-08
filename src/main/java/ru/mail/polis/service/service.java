@@ -181,8 +181,13 @@ public class service extends HttpServer implements KVService {
     private Response remove (@NotNull final String id, @NotNull final boolean proxied, final RequestCondition rc) {
         if (proxied) {
             //coordinator request
+            try {
             dao.remove(id.getBytes());
             return new Response(Response.ACCEPTED, Response.EMPTY);
+            } catch (IOException iOE) {
+                this.logger.error("Storage exceptions occurs during removeLocal " + iOE);
+                return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+            }
         } else {
             //user request
             ArrayList<HttpClient> requestedNodes = getNodes(id, rc);
