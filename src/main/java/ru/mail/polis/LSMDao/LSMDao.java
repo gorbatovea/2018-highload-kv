@@ -5,6 +5,8 @@ import ru.mail.polis.KVDao;
 
 import java.io.*;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
@@ -218,15 +220,21 @@ public class LSMDao implements KVDao {
             if (index.getIndex() == null) throw new NoSuchElementException();
             File source = new File(this.storage.toString() + File.separator + index.getIndex().toString());
             if (!source.canRead() || !source.exists() || !source.isFile()) throw new IOException();
-            RandomAccessFile randomAccessFile = new RandomAccessFile(source, "r");
-            randomAccessFile.skipBytes(Long.BYTES);
+
+            MappedByteBuffer mappedByteBuffer =
+                    new RandomAccessFile(source, "r")
+                            .getChannel()
+                            .map(FileChannel.MapMode.READ_ONLY, 0, source.length());
+
+            mappedByteBuffer.position(Long.BYTES);
+
             int valueOffset = REMOVED_MARK;
-            int amount = randomAccessFile.readInt();
+            int amount = mappedByteBuffer.getInt();
             for (int i = 0; i < amount; i++) {
-                byte[] bytes = new byte[randomAccessFile.readInt()];
-                randomAccessFile.read(bytes);
-                int offSet = randomAccessFile.readInt();
-                randomAccessFile.skipBytes(Long.BYTES);
+                byte[] bytes = new byte[mappedByteBuffer.getInt()];
+                mappedByteBuffer.get(bytes);
+                int offSet = mappedByteBuffer.getInt();
+                mappedByteBuffer.getLong();
                 if (Arrays.equals(bytes, key)) {
                     if (offSet != REMOVED_MARK) {
                         valueOffset = offSet;
@@ -234,10 +242,10 @@ public class LSMDao implements KVDao {
                 }
             }
 
-            randomAccessFile.skipBytes(valueOffset);
-            byte[] value = new byte[randomAccessFile.readInt()];
-            randomAccessFile.read(value);
-            randomAccessFile.close();
+            mappedByteBuffer.position(mappedByteBuffer.position() + valueOffset);
+
+            byte[] value = new byte[mappedByteBuffer.getInt()];
+            mappedByteBuffer.get(value);
             return value;
 
         }
