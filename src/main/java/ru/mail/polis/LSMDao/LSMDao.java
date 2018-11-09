@@ -81,12 +81,10 @@ public class LSMDao implements KVDao {
     }
 
     private void flush() throws IOException{
-        synchronized (this.holder) {
-            if (memTableSize >= MEM_TABLE_TRASH_HOLD) {
-                this.holder.save(this.memTable, this.memTableSize);
-                this.memTable.clear();
-                this.memTableSize = 0;
-            }
+        if (memTableSize >= MEM_TABLE_TRASH_HOLD) {
+            this.holder.save(this.memTable, this.memTableSize);
+            this.memTable.clear();
+            this.memTableSize = 0;
         }
     }
 
@@ -278,47 +276,51 @@ public class LSMDao implements KVDao {
 
         public void save(SortedMap<ByteBuffer, LSMDao.Value> source, int bytes) throws IOException {
             int offset = 0;
-            File dist = new File(this.storage + File.separator + fileNumber.toString());
-            if (!dist.createNewFile()) throw new IOException();
+            synchronized (this) {
+                File dist = new File(this.storage + File.separator + fileNumber.toString());
+                if (!dist.createNewFile()) throw new IOException();
 
-            int size = Long.BYTES
-                    + Integer.BYTES
-                    + (Integer.BYTES + Integer.BYTES + Integer.BYTES) * source.size()
-                    + bytes;
+                int size = Long.BYTES
+                        + Integer.BYTES
+                        + (Integer.BYTES + Integer.BYTES + Integer.BYTES) * source.size()
+                        + bytes;
 
-            ByteBuffer buffer = ByteBuffer.allocate(size)
-                    .putLong(System.currentTimeMillis())
-                    .putInt(source.size());
+                ByteBuffer buffer = ByteBuffer.allocate(size)
+                        .putLong(System.currentTimeMillis())
+                        .putInt(source.size());
 
-            for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
-                this.sSMap.put(
-                        entry.getKey(),
-                        new LSMDao.SnapshotHolder.Value(fileNumber, entry.getValue().getTimeStamp()));
+                for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
+                    this.sSMap.put(
+                            entry.getKey(),
+                            new LSMDao.SnapshotHolder.Value(fileNumber, entry.getValue().getTimeStamp())
+                    );
 
-                buffer.putInt(entry.getKey().capacity())
-                        .put(entry.getKey());
+                    buffer
+                            .putInt(entry.getKey().capacity())
+                            .put(entry.getKey());
 
-                if (entry.getValue().getValue() == REMOVED_VALUE) {
-                    buffer.putInt(REMOVED_MARK);
-                } else {
-                    buffer.putInt(offset);
-                    offset += Integer.BYTES + entry.getValue().getValue().length;
+                    if (entry.getValue().getValue() == REMOVED_VALUE) {
+                        buffer.putInt(REMOVED_MARK);
+                    } else {
+                        buffer.putInt(offset);
+                        offset += Integer.BYTES + entry.getValue().getValue().length;
+                    }
+
+                    buffer.putLong(entry.getValue().getTimeStamp());
                 }
 
-                buffer.putLong(entry.getValue().getTimeStamp());
-            }
+                for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
+                    buffer
+                            .putInt(entry.getValue().getValue().length)
+                            .put(entry.getValue().getValue());
+                }
 
-            for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
-                buffer.putInt(entry.getValue().getValue().length)
-                        .put(entry.getValue().getValue());
-                source.remove(entry.getKey());
+                OutputStream outputStream = new FileOutputStream(dist);
+                outputStream.write(buffer.array());
+                outputStream.flush();
+                outputStream.close();
+                fileNumber++;
             }
-            OutputStream outputStream = new FileOutputStream(dist);
-            outputStream.write(buffer.array());
-            buffer.clear();
-            outputStream.flush();
-            outputStream.close();
-            fileNumber++;
         }
 
         public void close() {
