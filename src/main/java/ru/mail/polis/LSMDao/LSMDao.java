@@ -290,10 +290,6 @@ public class LSMDao implements KVDao {
                         .putInt(source.size());
 
                 for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
-                    this.sSMap.put(
-                            entry.getKey(),
-                            new LSMDao.SnapshotHolder.Value(fileNumber, entry.getValue().getTimeStamp())
-                    );
 
                     buffer
                             .putInt(entry.getKey().capacity())
@@ -320,6 +316,15 @@ public class LSMDao implements KVDao {
                 outputStream.flush();
                 outputStream.close();
                 fileNumber++;
+
+                buffer = null;
+
+                for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
+                    this.sSMap.put(
+                            entry.getKey(),
+                            new LSMDao.SnapshotHolder.Value(fileNumber, entry.getValue().getTimeStamp())
+                    );
+                }
             }
         }
 
