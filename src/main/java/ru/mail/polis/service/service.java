@@ -244,9 +244,9 @@ public class service extends HttpServer implements KVService {
     private Response getLocal(@NotNull String id) {
         try {
             LSMDao.Value value = dao.getWithMeta(id.getBytes());
-            if (value.getValue() != null) {
+            if (value.getBytes() != null) {
                 //200 Response with value.timestamp()
-                return buildResponse(Response.OK, value.getValue(), value.getTimeStamp());
+                return buildResponse(Response.OK, value.getBytes(), value.getTimeStamp());
             } else {
                 //404 Response with value.timestamp()
                 return buildResponse(Response.NOT_FOUND, Response.EMPTY, value.getTimeStamp());
@@ -255,6 +255,7 @@ public class service extends HttpServer implements KVService {
         } catch (NoSuchElementException nSEE) {
             //404 Response with LONG.MIN_VALUE
             this.logger.error("Storage exceptions occurs during getLocal " + nSEE);
+            nSEE.printStackTrace();
             return buildResponse(Response.NOT_FOUND, Response.EMPTY, Long.MIN_VALUE);
         }catch (IOException iOE) {
             this.logger.error("Storage exceptions occurs during getLocal " + iOE);
