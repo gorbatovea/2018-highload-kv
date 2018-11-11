@@ -43,8 +43,7 @@ public final class Server {
                         PORT,
                         dao,
                         Collections.singleton("http://localhost:" + PORT));
-//        storage.start();
-        Thread.sleep(100000);
+        storage.start();
         Runtime.getRuntime().addShutdownHook(
                 new Thread(() -> {
                     storage.stop();

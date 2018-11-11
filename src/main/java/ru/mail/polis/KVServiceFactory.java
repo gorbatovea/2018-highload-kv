@@ -60,6 +60,7 @@ final class KVServiceFactory {
         HttpServerConfig config = new HttpServerConfig();
         AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
+        acceptorConfig.backlog = 512;
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
         return new service(config, dao, topology);
     }

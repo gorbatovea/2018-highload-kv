@@ -43,7 +43,7 @@ public final class Cluster {
         // Start nodes
         for (int i = 0; i < PORTS.length; i++) {
             final int port = PORTS[i];
-            final File data = Files.createTempDirectory();
+            final File data = Files.createDirectory();
             final KVDao dao = KVDaoFactory.create(data);
 
             System.out.println("Starting node " + i + " on port " + port + " and data at " + data);
@@ -60,6 +60,7 @@ public final class Cluster {
                         storage.stop();
                         try {
                             dao.close();
+                            Files.recursiveDelete(data);
                         } catch (IOException e) {
                             throw new RuntimeException("Can't close dao", e);
                         }

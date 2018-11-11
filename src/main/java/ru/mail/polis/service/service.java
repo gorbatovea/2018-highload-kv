@@ -255,7 +255,6 @@ public class service extends HttpServer implements KVService {
         } catch (NoSuchElementException nSEE) {
             //404 Response with LONG.MIN_VALUE
             this.logger.error("Storage exceptions occurs during getLocal " + nSEE);
-            nSEE.printStackTrace();
             return buildResponse(Response.NOT_FOUND, Response.EMPTY, Long.MIN_VALUE);
         }catch (IOException iOE) {
             this.logger.error("Storage exceptions occurs during getLocal " + iOE);

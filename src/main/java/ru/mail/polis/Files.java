@@ -51,6 +51,11 @@ final class Files {
         return data;
     }
 
+    static File createDirectory() throws IOException {
+        final File data = java.nio.file.Files.createTempDirectory(TEMP_PREFIX).toFile();
+        return data;
+    }
+
     static void recursiveDelete(@NotNull final File path) throws IOException {
         java.nio.file.Files.walkFileTree(
                 path.toPath(),
