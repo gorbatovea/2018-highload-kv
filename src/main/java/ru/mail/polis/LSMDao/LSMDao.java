@@ -15,10 +15,10 @@ import java.util.*;
 
 public class LSMDao implements KVDao {
     final private int MEM_TABLE_TRASH_HOLD = 1024 * 40;
-    //    final private int MEM_TABLE_TRASH_HOLD = 1024 * 10;
+
     final private String STORAGE_DIR;
 
-    final private SortedMap<ByteBuffer, Value> memTable = new TreeMap<>();
+    final private Map<ByteBuffer, Value> memTable = new HashMap<>();
 
     final private SnapshotHolder holder;
 
@@ -274,7 +274,7 @@ public class LSMDao implements KVDao {
             return this.sSMap.containsKey(key);
         }
 
-        public void save(final SortedMap<ByteBuffer, LSMDao.Value> source, final int bytes) throws IOException {
+        public void save(final Map<ByteBuffer, LSMDao.Value> source, final int bytes) throws IOException {
             synchronized (this) {
                 if (source.size() == 0) return;
                 int offset = 0;
