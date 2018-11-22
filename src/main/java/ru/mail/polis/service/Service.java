@@ -8,7 +8,6 @@ import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.KVDao;
 import ru.mail.polis.KVService;
 import ru.mail.polis.dao.LsmDao;
-import ru.mail.polis.service.Utils.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -16,7 +15,7 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 import static java.lang.Math.abs;
-import static ru.mail.polis.service.Utils.*;
+import static ru.mail.polis.service.Patterns.*;
 import static one.nio.http.Request.*;
 
 public class Service extends HttpServer implements KVService {

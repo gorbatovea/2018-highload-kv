@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 
-public class Utils {
+public class Patterns {
 
     public static final String PROXY_HEADER = "Proxied: True";
     public static final String TIMESTAMP_HEADER = "TIMESTAMP: ";

@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 
-import static ru.mail.polis.service.Utils.TIMESTAMP_HEADER;
+import static ru.mail.polis.service.Patterns.TIMESTAMP_HEADER;
 
 public class ResponseAnalyzer {
     private final int condition;
