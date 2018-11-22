@@ -75,7 +75,7 @@ abstract class ClusterTestBase extends TestBase {
             } catch (Exception ignored) {
             }
         }
-        throw new RuntimeException("Can't wait for the service");
+        throw new RuntimeException("Can't wait for the Service");
     }
 
     @NotNull

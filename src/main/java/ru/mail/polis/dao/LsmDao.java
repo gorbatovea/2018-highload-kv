@@ -1,4 +1,4 @@
-package ru.mail.polis.LSMDao;
+package ru.mail.polis.dao;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.KVDao;
@@ -13,7 +13,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
-public class LSMDao implements KVDao {
+public class LsmDao implements KVDao {
     private final static String DEFAULT_CONFIG_PATH = "configuration.properties";
     private final static String PROP_LSM_MEMORY_TABLE_SIZE = "lsm.memory.table.size";
     private final static int IN_KBITES = 1024;
@@ -27,7 +27,7 @@ public class LSMDao implements KVDao {
 
     private int memTableSize = 0;
 
-    public LSMDao(final File dir) throws IOException {
+    public LsmDao(final File dir) throws IOException {
         this.STORAGE_DIR = dir + File.separator;
         this.holder = new SnapshotHolder(this.STORAGE_DIR);
 
@@ -62,7 +62,7 @@ public class LSMDao implements KVDao {
         }
     }
 
-    public LSMDao.Value getWithMeta(@NotNull byte[] key) throws IOException, NoSuchElementException {
+    public LsmDao.Value getWithMeta(@NotNull byte[] key) throws IOException, NoSuchElementException {
         ByteBuffer keyBuffer = ByteBuffer.wrap(key);
         Optional<Value> value;
 
@@ -188,7 +188,7 @@ public class LSMDao implements KVDao {
                                             marks.put(keyBuffer, fileMark);
                                         } else {
                                             if (lastMark < fileMark) {
-                                                sSMap.put(keyBuffer, new LSMDao.SnapshotHolder.Value(null, timeStamp));
+                                                sSMap.put(keyBuffer, new LsmDao.SnapshotHolder.Value(null, timeStamp));
                                                 marks.put(keyBuffer, fileMark);
                                             }
                                         }
@@ -198,13 +198,13 @@ public class LSMDao implements KVDao {
                                             marks.put(keyBuffer, fileMark);
                                             sSMap.put(
                                                     keyBuffer,
-                                                    new LSMDao.SnapshotHolder.Value(
+                                                    new LsmDao.SnapshotHolder.Value(
                                                             Long.parseLong(file.toFile().getName()), timeStamp));
                                         } else {
                                             if (itemTStamp < fileMark) {
                                                 sSMap.put(
                                                         keyBuffer,
-                                                        new LSMDao.SnapshotHolder.Value(
+                                                        new LsmDao.SnapshotHolder.Value(
                                                                 Long.parseLong(file.toFile().getName()),
                                                                 timeStamp));
                                                 marks.put(keyBuffer, fileMark);
@@ -229,7 +229,7 @@ public class LSMDao implements KVDao {
             }
         }
 
-        public LSMDao.Value getWithMeta(final ByteBuffer key) throws IOException, NoSuchElementException {
+        public LsmDao.Value getWithMeta(final ByteBuffer key) throws IOException, NoSuchElementException {
 
             Value value;
             synchronized (this) {
@@ -239,15 +239,15 @@ public class LSMDao implements KVDao {
             if (value == null) {
                 throw new NoSuchElementException();
             } else if (value.getIndex() == null) {
-                return new LSMDao.Value(null, value.getTimeStamp());
+                return new LsmDao.Value(null, value.getTimeStamp());
             } else {
-                return new LSMDao.Value(this.get(key), value.getTimeStamp());
+                return new LsmDao.Value(this.get(key), value.getTimeStamp());
             }
         }
 
         public byte[] get(final ByteBuffer key) throws IOException, NoSuchElementException {
 
-            LSMDao.SnapshotHolder.Value index;
+            LsmDao.SnapshotHolder.Value index;
             synchronized (this) {
                 index = this.sSMap.get(key);
             }
@@ -291,7 +291,7 @@ public class LSMDao implements KVDao {
             return this.sSMap.containsKey(key);
         }
 
-        public void save(final Map<ByteBuffer, LSMDao.Value> source, final int bytes) throws IOException {
+        public void save(final Map<ByteBuffer, LsmDao.Value> source, final int bytes) throws IOException {
             synchronized (this) {
                 if (source.size() == 0) return;
                 int offset = 0;
@@ -307,7 +307,7 @@ public class LSMDao implements KVDao {
                         .putLong(this.fileNumber)
                         .putInt(source.size());
 
-                for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
+                for (Map.Entry<ByteBuffer, LsmDao.Value> entry : source.entrySet()) {
 
                     buffer.putInt(entry.getKey().capacity())
                             .put(entry.getKey().array());
@@ -322,7 +322,7 @@ public class LSMDao implements KVDao {
                     buffer.putLong(entry.getValue().getTimeStamp());
                 }
 
-                for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
+                for (Map.Entry<ByteBuffer, LsmDao.Value> entry : source.entrySet()) {
                     buffer
                             .putInt(entry.getValue().getBytes().length)
                             .put(entry.getValue().getBytes());
@@ -333,7 +333,7 @@ public class LSMDao implements KVDao {
                 outputStream.flush();
                 outputStream.close();
 
-                for (Map.Entry<ByteBuffer, LSMDao.Value> entry : source.entrySet()) {
+                for (Map.Entry<ByteBuffer, LsmDao.Value> entry : source.entrySet()) {
                     if (entry.getValue().getBytes() != REMOVED_VALUE) {
                         this.sSMap.put(
                                 entry.getKey(),

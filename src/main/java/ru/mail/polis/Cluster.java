@@ -16,7 +16,7 @@
 
 package ru.mail.polis;
 
-import ru.mail.polis.LSMDao.LSMDao;
+import ru.mail.polis.dao.LsmDao;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,7 +46,7 @@ public final class Cluster {
         for (int i = 0; i < PORTS.length; i++) {
             final int port = PORTS[i];
             final File data = Files.createDirectory();
-            final KVDao dao = (LSMDao) KVDaoFactory.create(data);
+            final KVDao dao = (LsmDao) KVDaoFactory.create(data);
 
             System.out.println("Starting node " + i + " on port " + port + " and data at " + data);
 

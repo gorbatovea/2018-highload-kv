@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.KVDao;
 import ru.mail.polis.KVService;
-import ru.mail.polis.LSMDao.LSMDao;
+import ru.mail.polis.dao.LsmDao;
 import ru.mail.polis.service.Utils.*;
 
 import java.io.IOException;
@@ -18,9 +18,9 @@ import java.util.Set;
 import static java.lang.Math.abs;
 import static ru.mail.polis.service.Utils.*;
 
-public class service extends HttpServer implements KVService {
+public class Service extends HttpServer implements KVService {
     @NotNull
-    private final LSMDao dao;
+    private final LsmDao dao;
 
     @NotNull
     private final ArrayList<HttpClient> nodes = new ArrayList<>();
@@ -28,16 +28,16 @@ public class service extends HttpServer implements KVService {
     @NotNull
     private  HttpClient me = null;
 
-    private static final Logger logger = Logger.getLogger(service.class);
+    private static final Logger logger = Logger.getLogger(Service.class);
 
     private static final String SPLITTER = " ";
 
-    public service(
+    public Service(
             @NotNull HttpServerConfig config,
             @NotNull KVDao dao,
             @NotNull Set<String> topology) throws IOException {
         super(config);
-        this.dao = (LSMDao) dao;
+        this.dao = (LsmDao) dao;
         String port = Integer.toString(config.acceptors[0].port);
         topology.stream().forEach(node -> {
             HttpClient client = new HttpClient(new ConnectionString(node));
@@ -243,7 +243,7 @@ public class service extends HttpServer implements KVService {
     @NotNull
     private Response getLocal(@NotNull String id) {
         try {
-            LSMDao.Value value = dao.getWithMeta(id.getBytes());
+            LsmDao.Value value = dao.getWithMeta(id.getBytes());
             if (value.getBytes() != null) {
                 //200 Response with value.timestamp()
                 return buildResponse(Response.OK, value.getBytes(), value.getTimeStamp());

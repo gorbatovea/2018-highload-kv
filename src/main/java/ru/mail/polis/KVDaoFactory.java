@@ -17,7 +17,7 @@
 package ru.mail.polis;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.LSMDao.LSMDao;
+import ru.mail.polis.dao.LsmDao;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,6 +54,6 @@ final class KVDaoFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return new LSMDao(data);
+        return new LsmDao(data);
     }
 }

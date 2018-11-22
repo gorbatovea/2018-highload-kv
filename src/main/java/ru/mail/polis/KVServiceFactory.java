@@ -19,7 +19,7 @@ package ru.mail.polis;
 import one.nio.http.HttpServerConfig;
 import one.nio.server.AcceptorConfig;
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.service.service;
+import ru.mail.polis.service.Service;
 
 import java.io.IOException;
 import java.util.Set;
@@ -61,6 +61,6 @@ final class KVServiceFactory {
         AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
-        return new service(config, dao, topology);
+        return new Service(config, dao, topology);
     }
 }
