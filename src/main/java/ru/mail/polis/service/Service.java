@@ -17,6 +17,7 @@ import java.util.Set;
 
 import static java.lang.Math.abs;
 import static ru.mail.polis.service.Utils.*;
+import static one.nio.http.Request.*;
 
 public class Service extends HttpServer implements KVService {
     @NotNull
@@ -165,7 +166,7 @@ public class Service extends HttpServer implements KVService {
                     if (node == me) {
                         dao.upsert(id.getBytes(), value);
                         ack++;
-                    } else if (sendProxied(HttpMethod.PUT, node, id, value).getStatus() == HTTP_CODE_CREATED) {
+                    } else if (sendProxied(METHOD_PUT, node, id, value).getStatus() == HttpCode.CREATED.code) {
                         ack++;
                     }
                 } catch (Exception e) { this.logger.error("Exeption during user's upsert request " + e); }
@@ -200,7 +201,7 @@ public class Service extends HttpServer implements KVService {
                         ack++;
                     } else {
                         //requesting others nodes
-                        if (sendProxied(HttpMethod.DELETE, node, id, null).getStatus() == HTTP_CODE_ACCEPTED) ack++;
+                        if (sendProxied(METHOD_DELETE, node, id, null).getStatus() == HttpCode.ACCEPTED.code) ack++;
                     }
                 } catch (Exception e) {
                     this.logger.error("Exception during user's remove request " + e);
@@ -220,7 +221,7 @@ public class Service extends HttpServer implements KVService {
         } else {
             //user request
             ArrayList<HttpClient> requestedNodes = getNodes(id, rc);
-            RespAnalyzer analyzer = new RespAnalyzer(rc.getAck());
+            ResponseAnalyzer analyzer = new ResponseAnalyzer(rc.getAck());
             for (HttpClient node : requestedNodes) {
                 try {
                     if (node == me) {
@@ -228,7 +229,7 @@ public class Service extends HttpServer implements KVService {
                         analyzer.put(getLocal(id), node);
                     } else {
                         //requesting others node
-                        analyzer.put(sendProxied(HttpMethod.GET, node, id, null), node);
+                        analyzer.put(sendProxied(METHOD_GET, node, id, null), node);
                     }
                 } catch(Exception e){
                     this.logger.error("Exception during user's get request " + e);
@@ -263,7 +264,7 @@ public class Service extends HttpServer implements KVService {
     }
 
     @NotNull
-    private Response sendProxied(HttpMethod method,
+    private Response sendProxied(int method,
                                  @NotNull HttpClient node,
                                  @NotNull String id,
                                  @Nullable byte[] body) throws Exception{
@@ -274,9 +275,9 @@ public class Service extends HttpServer implements KVService {
                 .append(id)
                 .toString();
         switch (method) {
-            case PUT: return node.put(request, body, PROXY_HEADER);
-            case DELETE: return node.delete(request, PROXY_HEADER);
-            case GET: return node.get(request, PROXY_HEADER);
+            case METHOD_PUT: return node.put(request, body, PROXY_HEADER);
+            case METHOD_DELETE: return node.delete(request, PROXY_HEADER);
+            case METHOD_GET: return node.get(request, PROXY_HEADER);
             default: return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
         }
     }
