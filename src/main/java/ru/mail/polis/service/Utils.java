@@ -121,9 +121,9 @@ public class Utils {
             this.from = from;
         }
 
-        public RequestCondition(int amount) {
-            this.ack = amount;
-            this.from = amount;
+        public RequestCondition(int nodes) {
+            this.ack = (nodes / 2) + 1;
+            this.from = nodes;
         }
 
         public int getAck() {
