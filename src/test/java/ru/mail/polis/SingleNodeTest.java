@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
@@ -81,8 +82,18 @@ class SingleNodeTest extends TestBase {
         return "/v0/entity?id=" + id;
     }
 
+    @NotNull
+    private String applyPath() {
+        return "/v0/apply";
+    }
+
     private Response get(@NotNull final String key) throws Exception {
         return client.get(path(key));
+    }
+
+    private Response post(@NotNull final String classname,
+                          @NotNull final byte[] data) throws Exception {
+        return client.post(applyPath(), data, "Classname: " + classname);
     }
 
     private Response delete(@NotNull final String key) throws Exception {
@@ -93,6 +104,14 @@ class SingleNodeTest extends TestBase {
             @NotNull final String key,
             @NotNull final byte[] data) throws Exception {
         return client.put(path(key), data);
+    }
+
+    @Test
+    void applyScript() throws Exception{
+        InputStream inputStream = ClassLoader.getSystemResourceAsStream("script/Script.class");
+        byte[] bytes = new byte[inputStream.available()];
+        inputStream.read(bytes);
+        System.out.println(new String(post("script.Script", bytes).getBody()));
     }
 
     @Test

@@ -1,5 +1,6 @@
 package ru.mail.polis.service;
 
+import com.sun.org.apache.bcel.internal.classfile.ClassFormatException;
 import one.nio.http.*;
 import one.nio.net.ConnectionString;
 import org.apache.log4j.Logger;
@@ -8,6 +9,9 @@ import org.jetbrains.annotations.Nullable;
 import ru.mail.polis.KVDao;
 import ru.mail.polis.KVService;
 import ru.mail.polis.dao.LsmDao;
+import ru.mail.polis.loader.ByteClass;
+import ru.mail.polis.loader.ByteClassLoader;
+import script.IScript;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -15,8 +19,9 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 import static java.lang.Math.abs;
-import static ru.mail.polis.service.Patterns.*;
 import static one.nio.http.Request.*;
+import static ru.mail.polis.service.HttpMethod.map;
+import static ru.mail.polis.service.Patterns.*;
 
 public class Service extends HttpServer implements KVService {
     @NotNull
@@ -29,8 +34,6 @@ public class Service extends HttpServer implements KVService {
     private  HttpClient me = null;
 
     private static final Logger logger = Logger.getLogger(Service.class);
-
-    private static final String SPLITTER = " ";
 
     public Service(
             @NotNull HttpServerConfig config,
@@ -89,6 +92,7 @@ public class Service extends HttpServer implements KVService {
 
             this.logger.info(buildString(
                     SPLITTER,
+                    map(request.getMethod()),
                     REQUEST_FROM,
                     request.getHost(),
                     request.getPath(),
@@ -134,6 +138,68 @@ public class Service extends HttpServer implements KVService {
             }
         } catch (IllegalArgumentException iAE) {
             logger.error("Illegal argument found in request " + iAE);
+            Response response = buildResponse(Response.BAD_REQUEST, null, null);
+            this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), request.getHeader("PORT"), Integer.toString(response.getStatus())));
+            session.sendResponse(response);
+        }
+    }
+
+    @Path(APPLY_PATH)
+    public void apply(Request request, HttpSession session) throws IOException{
+        try {
+            this.logger.info(buildString(
+                    SPLITTER,
+                    map(request.getMethod()),
+                    REQUEST_FROM,
+                    request.getHost(),
+                    request.getPath(),
+                    PROXIED,
+                    Boolean.toString(request.getHeader(PROXY_HEADER) != null)
+            ));
+
+            RequestCondition rc = buildRC(request.getParameter(REPLICAS_PARAM));
+
+            switch (request.getMethod()) {
+                case Request.METHOD_POST: {
+                    try {
+                        ByteClass byteClass = new ByteClass(request.getHeader(CLASSNAME_HEADER), request.getBody());
+                        Class scriptClass = new ByteClassLoader().findClass(byteClass);
+                        IScript script = (IScript) scriptClass.newInstance();
+                        this.logger.info(buildString(
+                                SPLITTER,
+                                SCRIPT_NAME,
+                                byteClass.getName()
+                        ));
+                        Response response = new Response(Response.OK, script.apply(this.dao).getBytes());
+                        session.sendResponse(response);
+                    } catch (Exception exception) {
+                        this.logger.error(exception.toString() + " during applying script");
+                        Response response = new Response(Response.INTERNAL_ERROR, exception.toString().getBytes());
+                        this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), request.getHeader("PORT"), Integer.toString(response.getStatus())));
+                        session.sendResponse(response);
+                    } catch (ClassFormatError cFE) {
+                        this.logger.error(cFE.toString() + " during applying script");
+                        Response response = new Response(Response.INTERNAL_ERROR, cFE.toString().getBytes());
+                        this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), request.getHeader("PORT"), Integer.toString(response.getStatus())));
+                        session.sendResponse(response);
+                    }
+                    break;
+                }
+                default: {
+                    Response response = buildResponse(Response.METHOD_NOT_ALLOWED, null, null);
+                    this.logger.info(buildString(
+                            SPLITTER,
+                            RESPONSE_TO,
+                            request.getHost(),
+                            Integer.toString(response.getStatus())
+                    ));
+                    session.sendResponse(response);
+                    break;
+                }
+            }
+
+        } catch (IllegalArgumentException iAE) {
+            this.logger.error("Illegal argument found in request " + iAE);
             Response response = buildResponse(Response.BAD_REQUEST, null, null);
             this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), request.getHeader("PORT"), Integer.toString(response.getStatus())));
             session.sendResponse(response);
