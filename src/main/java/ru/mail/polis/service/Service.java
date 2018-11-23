@@ -172,6 +172,7 @@ public class Service extends HttpServer implements KVService {
                         ));
                         Response response = new Response(Response.OK, script.apply(this.dao).getBytes());
                         session.sendResponse(response);
+                        this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), Integer.toString(response.getStatus())));
                     } catch (Exception exception) {
                         this.logger.error(exception.toString() + " during applying script");
                         Response response = new Response(Response.INTERNAL_ERROR, exception.toString().getBytes());
@@ -180,6 +181,11 @@ public class Service extends HttpServer implements KVService {
                     } catch (ClassFormatError cFE) {
                         this.logger.error(cFE.toString() + " during applying script");
                         Response response = new Response(Response.INTERNAL_ERROR, cFE.toString().getBytes());
+                        this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), request.getHeader("PORT"), Integer.toString(response.getStatus())));
+                        session.sendResponse(response);
+                    } catch (NoClassDefFoundError nCDFE) {
+                        this.logger.error(nCDFE.toString() + " during applying script");
+                        Response response = new Response(Response.INTERNAL_ERROR, nCDFE.toString().getBytes());
                         this.logger.info(buildString(SPLITTER, RESPONSE_TO, request.getHost(), request.getHeader("PORT"), Integer.toString(response.getStatus())));
                         session.sendResponse(response);
                     }
