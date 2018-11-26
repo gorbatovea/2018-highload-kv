@@ -2,40 +2,40 @@
 
 ### Stage-2 PUT
  
-Linear - https://overload.yandex.net/136917
+Linear - https://overload.yandex.net/139074
 
-Const - https://overload.yandex.net/139012
+Linear + Const - https://overload.yandex.net/139076
 
 ### Stage-2 GET
  
-Linear - https://overload.yandex.net/136925
+Linear - https://overload.yandex.net/139077
 
-Const - https://overload.yandex.net/139018
+Linear + Const - https://overload.yandex.net/139078
 
 ### Stage-2 MIX
 
 Linear - https://overload.yandex.net/136930
 
-Const - https://overload.yandex.net/139019
+Linear + Const - https://overload.yandex.net/139080
 
 
 ### Stage-3 PUT
 
 Linear - https://overload.yandex.net/136934
 
-Const - https://overload.yandex.net/139026
+Linear + Const - https://overload.yandex.net/139082
 
 ### Stage-3 GET
 
 Linear - https://overload.yandex.net/136949
 
-Const - https://overload.yandex.net/139028
+Linear + Const - https://overload.yandex.net/139083
 
 ### Stage-3 MIX
  
 Linear - https://overload.yandex.net/136951
 
-Const - https://overload.yandex.net/139031
+Linear + Const - https://overload.yandex.net/139084
 
 ## Profiling
 JFR - https://drive.google.com/open?id=1oXQDoA-poT8FXRjHYv2aMZxuCAVylcBl
