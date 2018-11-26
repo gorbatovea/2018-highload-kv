@@ -48,7 +48,7 @@ class TwoNodeTest extends ClusterTestBase {
     private KVService storage1;
 
     @BeforeEach
-    void beforeEach() throws Exception {
+    void beforeEach() throws IOException{
         port0 = randomPort();
         port1 = randomPort();
         endpoints = new LinkedHashSet<>(Arrays.asList(endpoint(port0), endpoint(port1)));
@@ -63,7 +63,7 @@ class TwoNodeTest extends ClusterTestBase {
     }
 
     @AfterEach
-    void afterEach() throws IOException, Exception {
+    void afterEach() throws IOException {
         stop(0, storage0);
         dao0.close();
         Files.recursiveDelete(data0);
