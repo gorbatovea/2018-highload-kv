@@ -2,21 +2,21 @@
 
 ### Stage-2 PUT
  
-Linear - https://overload.yandex.net/139074
+Linear - https://overload.yandex.net/139744
 
-Linear + Const - https://overload.yandex.net/139076
+Linear + Const - https://overload.yandex.net/139749
 
 ### Stage-2 GET
  
-Linear - https://overload.yandex.net/139077
+Linear - https://overload.yandex.net/139752
 
-Linear + Const - https://overload.yandex.net/139078
+Linear + Const - https://overload.yandex.net/139753
 
 ### Stage-2 MIX
 
-Linear - https://overload.yandex.net/136930
+Linear - https://overload.yandex.net/139755
 
-Linear + Const - https://overload.yandex.net/139080
+Linear + Const - https://overload.yandex.net/139758
 
 
 ### Stage-3 PUT
