@@ -54,6 +54,7 @@ JFR - https://drive.google.com/open?id=1oXQDoA-poT8FXRjHYv2aMZxuCAVylcBl
 #### before
 
 ![get_contention_before](https://raw.githubusercontent.com/gorbatovea/2018-highload-kv/Stage-3/pictures/get/before_contention.png)
+
 ![get_method_before](https://raw.githubusercontent.com/gorbatovea/2018-highload-kv/Stage-3/pictures/get/before_get_method.png)
 
 #### after
