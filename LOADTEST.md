@@ -39,19 +39,29 @@ Linear + Const - https://overload.yandex.net/139084
 
 ## Profiling
 JFR - https://drive.google.com/open?id=1oXQDoA-poT8FXRjHYv2aMZxuCAVylcBl
-
-![cat](https://avatars.mds.yandex.net/get-pdb/27625/14057772-8246-43f3-a075-5fd66c96c00a/s1200)
-
-## Summary
-
 ### PUT
+#### before
+![put_contention_before](https://raw.githubusercontent.com/gorbatovea/2018-highload-kv/Stage-3/pictures/put/before.png)
+#### after
+
+![put_contention_before](https://raw.githubusercontent.com/gorbatovea/2018-highload-kv/Stage-3/pictures/put/after.png)
 
 Удалось существенно улучшить производительность PUT операций за счет оптимизаций записи в хранилище. 
-Переход на одну IO операцию(вместо большого кол-ва IO записей в момент снятия дампа состояния) также позволил сократить contention.
+Переход на одну IO операцию(вместо большого кол-ва IO записей в момент снятия дампа состояния) позволил очень сильно сократить contention
 
 ### GET
 
-Удалось очень сильно улучшить производительность GET. 
-Это стало возможным благодаря уменьшению количества блокировок потоков.
+#### before
+
+![get_contention_before](https://raw.githubusercontent.com/gorbatovea/2018-highload-kv/Stage-3/pictures/get/before_contention.png)
+![get_method_before](https://raw.githubusercontent.com/gorbatovea/2018-highload-kv/Stage-3/pictures/get/before_get_method.png)
+
+#### after
+
+![get_method_before](https://raw.githubusercontent.com/gorbatovea/2018-highload-kv/Stage-3/pictures/get/after_get_method.png)
+
+
+Производительность GET возросла на порядок. 
+Это стало возможным благодаря уменьшению количества блокировок потоков практически до 0(после оптимизаций не удалось зафиксировать contention).
 Также теперь используется mmap для чтения из дампа - это сказалось крайне положительно на производительности IO операций.
 Как результат - уменьшение contention'a и рост производительности. 
