@@ -39,7 +39,7 @@ public class LsmDao implements KVDao {
             tableSize = Integer.parseInt(properties.getProperty(PROP_LSM_MEMORY_TABLE_SIZE)) * IN_KBITES;
             if (tableSize < 1) throw new IllegalArgumentException();
         } catch (Exception e) {
-            e.printStackTrace();
+//            e.printStackTrace();
             tableSize = DEFAULT_MEM_TABLE_TRASH_HOLD;
         }
 
