@@ -107,14 +107,6 @@ class SingleNodeTest extends TestBase {
     }
 
     @Test
-    void applyScript() throws Exception{
-        InputStream inputStream = ClassLoader.getSystemResourceAsStream("script/Script.class");
-        byte[] bytes = new byte[inputStream.available()];
-        inputStream.read(bytes);
-        System.out.println(new String(post("script.Script", bytes).getBody()));
-    }
-
-    @Test
     void emptyKey() {
         assertTimeoutPreemptively(TIMEOUT, () -> {
             assertEquals(400, get("").getStatus());
