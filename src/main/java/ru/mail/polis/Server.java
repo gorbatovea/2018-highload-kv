@@ -32,9 +32,9 @@ public final class Server {
         // Not instantiable
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException,Exception {
         // Temporary storage in the file system
-        final File data = Files.createTempDirectory();
+        final File data = Files.createDirectory();
 
         // Start the storage
         final KVDao dao = KVDaoFactory.create(data);
@@ -49,6 +49,7 @@ public final class Server {
                     storage.stop();
                     try {
                         dao.close();
+                        Files.recursiveDelete(data);
                     } catch (IOException e) {
                         throw new RuntimeException("Can't close dao", e);
                     }
